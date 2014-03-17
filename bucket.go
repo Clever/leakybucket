@@ -1,7 +1,13 @@
 package leakybucket
 
 import (
+	"errors"
 	"time"
+)
+
+var (
+	// ErrorFull is returned when the amount requested to add exceeds the remaining space in the bucket.
+	ErrorFull = errors.New("add exceeds free capacity")
 )
 
 // Bucket interface for interacting with leaky buckets: https://en.wikipedia.org/wiki/Leaky_bucket
@@ -21,5 +27,7 @@ type Bucket interface {
 
 // BucketFactory interface for generating buckets keyed by a string.
 type BucketFactory interface {
-	Create(string) Bucket
+	// Create a bucket with a name, capacity, and rate.
+	// rait is how long it takes for full capacity to drain.
+	Create(name string, capacity uint, rate time.Duration) Bucket
 }
