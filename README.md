@@ -16,7 +16,7 @@ leakybucket is built and tested against Go 1.2.
 Ensure this is the version of Go you're running with `go version`.
 Make sure your GOPATH is set, e.g. `export GOPATH=~/go`.
 Clone the repository to a location outside your GOPATH, and symlink it to `$GOPATH/src/github.com/Clever/leakybucket`.
-If you have [gvm](https://github.com/moovweb/gvm) installed, you can make this symlink by running the following from the root of where you have cloned the repository: `gvm linkthis github.com/Clever/gearadmin`.
+If you have [gvm](https://github.com/moovweb/gvm) installed, you can make this symlink by running the following from the root of where you have cloned the repository: `gvm linkthis github.com/Clever/leakybucket`.
 
 If you have done all of the above, then you should be able to run
 
