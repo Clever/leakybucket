@@ -25,9 +25,9 @@ type Bucket interface {
 	Add(uint) error
 }
 
-// BucketFactory interface for generating buckets keyed by a string.
-type BucketFactory interface {
+// Storage interface for generating buckets keyed by a string.
+type Storage interface {
 	// Create a bucket with a name, capacity, and rate.
-	// rait is how long it takes for full capacity to drain.
-	Create(name string, capacity uint, rate time.Duration) Bucket
+	// rate is how long it takes for full capacity to drain.
+	Create(name string, capacity uint, rate time.Duration) (Bucket, error)
 }

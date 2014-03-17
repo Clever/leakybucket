@@ -39,23 +39,23 @@ func (b *bucket) Add(amount uint) error {
 	return nil
 }
 
-// BucketFactory is a non thread-safe in-memory leaky bucket factory.
-type BucketFactory struct {
+// Storage is a non thread-safe in-memory leaky bucket factory.
+type Storage struct {
 	buckets map[string]*bucket
 }
 
 // New initializes the in-memory bucket store.
-func New() *BucketFactory {
-	return &BucketFactory{
+func New() *Storage {
+	return &Storage{
 		buckets: make(map[string]*bucket),
 	}
 }
 
 // Create a bucket.
-func (bf *BucketFactory) Create(name string, capacity uint, rate time.Duration) leakybucket.Bucket {
-	b, ok := bf.buckets[name]
+func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakybucket.Bucket, error) {
+	b, ok := s.buckets[name]
 	if ok {
-		return b
+		return b, nil
 	}
 	b = &bucket{
 		capacity:  capacity,
@@ -63,6 +63,6 @@ func (bf *BucketFactory) Create(name string, capacity uint, rate time.Duration) 
 		reset:     time.Now().Add(rate),
 		rate:      rate,
 	}
-	bf.buckets[name] = b
-	return b
+	s.buckets[name] = b
+	return b, nil
 }
