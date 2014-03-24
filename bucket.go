@@ -21,8 +21,15 @@ type Bucket interface {
 	// Reset returns when the bucket will be drained.
 	Reset() time.Time
 
-	// Add to the bucket.
-	Add(uint) error
+	// Add to the bucket. Returns bucket state after adding.
+	Add(uint) (BucketState, error)
+}
+
+// BucketState is a snapshot of a bucket's properties.
+type BucketState struct {
+	Capacity  uint
+	Remaining uint
+	Reset     time.Time
 }
 
 // Storage interface for generating buckets keyed by a string.

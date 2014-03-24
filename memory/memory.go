@@ -27,16 +27,16 @@ func (b *bucket) Reset() time.Time {
 }
 
 // Add to the bucket.
-func (b *bucket) Add(amount uint) error {
+func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	if time.Now().After(b.reset) {
 		b.reset = time.Now().Add(b.rate)
 		b.remaining = b.capacity
 	}
 	if amount > b.remaining {
-		return leakybucket.ErrorFull
+		return leakybucket.BucketState{b.capacity, b.remaining, b.reset}, leakybucket.ErrorFull
 	}
 	b.remaining -= amount
-	return nil
+	return leakybucket.BucketState{b.capacity, b.remaining, b.reset}, nil
 }
 
 // Storage is a non thread-safe in-memory leaky bucket factory.
