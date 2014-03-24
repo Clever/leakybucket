@@ -12,7 +12,7 @@ var (
 
 // Bucket interface for interacting with leaky buckets: https://en.wikipedia.org/wiki/Leaky_bucket
 type Bucket interface {
-	// Capcity of the bucket.
+	// Capacity of the bucket.
 	Capacity() uint
 
 	// Remaining space in the bucket.
