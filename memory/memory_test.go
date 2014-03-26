@@ -6,5 +6,9 @@ import (
 )
 
 func TestCreate(t *testing.T) {
-	leakybucket.CreateTest(New(), "Memory")(t)
+	leakybucket.CreateTest(New())(t)
+}
+
+func TestThreadSafeAdd(t *testing.T) {
+	leakybucket.ThreadSafeAddTest(New())(t)
 }
