@@ -9,7 +9,7 @@ import (
 
 // CreateTest returns a test of bucket creation for a given storage backend.
 // It is meant to be used by leakybucket implementers who wish to test this.
-func CreateTest(s Storage, name string) func(*testing.T) {
+func CreateTest(s Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		now := time.Now()
 		bucket, err := s.Create("testbucket", 100, time.Minute)
@@ -29,7 +29,7 @@ func CreateTest(s Storage, name string) func(*testing.T) {
 
 // ThreadSafeAddTest returns a test that adding to a single bucket is thread-safe.
 // It is meant to be used by leakybucket implementers who wish to test this.
-func ThreadSafeAddTest(s Storage, name string) func(*testing.T) {
+func ThreadSafeAddTest(s Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		// Make a bucket of size `n`. Spawn `n+1` goroutines that each try to take one token.
 		// We should see the bucket transition through having `n-1`, `n-2`, ... 0 remaining capacity.
