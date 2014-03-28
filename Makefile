@@ -1,9 +1,9 @@
 SHELL := /bin/bash
 PKG = github.com/Clever/leakybucket
-SUBPKGS = $(shell ls -d */ | sed -e s:\/$$::)
-SUBPKGPATHS = $(addprefix $(PKG)/,$(SUBPKGS))
-PKGS = $(PKG) $(SUBPKGPATHS)
-.PHONY: test $(PKGS) $(SUBPKGS)
+SUBPKGSREL = memory redis
+SUBPKGS = $(addprefix $(PKG)/,$(SUBPKGSREL))
+PKGS = $(PKG) $(SUBPKGS)
+.PHONY: test $(PKGS) $(SUBPKGSREL)
 
 test: $(PKGS)
 
@@ -19,4 +19,4 @@ else
 	go test $@ -test.v
 endif
 
-$(SUBPKGS): %: $(addprefix $(PKG)/, %)
+$(SUBPKGSREL): %: $(addprefix $(PKG)/, %)
