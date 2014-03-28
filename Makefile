@@ -3,7 +3,7 @@ PKG = github.com/Clever/leakybucket
 SUBPKGS = $(shell ls -d */ | sed -e s:\/$$::)
 SUBPKGPATHS = $(addprefix $(PKG)/,$(SUBPKGS))
 PKGS = $(PKG) $(SUBPKGPATHS)
-.PHONY: test $(PKGS)
+.PHONY: test $(PKGS) $(SUBPKGS)
 
 test: $(PKGS)
 
