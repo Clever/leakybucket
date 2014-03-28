@@ -1,8 +1,9 @@
 SHELL := /bin/bash
 PKG = github.com/Clever/leakybucket
-SUBPKGS = $(addprefix $(PKG)/,memory redis)
+SUBPKGSREL = memory redis
+SUBPKGS = $(addprefix $(PKG)/,$(SUBPKGSREL))
 PKGS = $(PKG) $(SUBPKGS)
-.PHONY: test $(PKGS)
+.PHONY: test $(PKGS) $(SUBPKGSREL)
 
 test: $(PKGS)
 
@@ -17,3 +18,5 @@ ifeq ($(COVERAGE),1)
 else
 	go test $@ -test.v
 endif
+
+$(SUBPKGSREL): %: $(addprefix $(PKG)/, %)
