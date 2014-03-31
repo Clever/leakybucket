@@ -2,6 +2,7 @@ package leakybucket
 
 import (
 	"math"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -90,8 +91,14 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 			}()
 		}
 		wg.Wait()
+		keys := reflect.ValueOf(remaining).MapKeys()
 		if len(remaining) != n {
-			t.Fatalf("Did not observe correct bucket states: %#v, %#v", remaining, errors)
+			string_keys := []int{}
+			for key := range keys {
+				string_keys = append(string_keys, key)
+			}
+			t.Fatalf("Did not observe correct bucket states. Saw %d distinct remaining values instead of %d: %#v",
+				len(remaining), n, string_keys)
 		}
 		if len(errors) != 1 && errors[0] != ErrorFull {
 			t.Fatalf("Did not observe one full error: %#v", errors)
