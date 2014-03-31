@@ -52,11 +52,8 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	if count, err := conn.Do("INCRBY", b.name, amount); err != nil {
 		return b.State(), err
 	} else {
-		b.remaining = b.capacity - uint(count.(int64))
-		if b.remaining > b.capacity {
-			// We overflowed because of a race condition
-			b.remaining = 0
-		}
+		// Ensure we can't overflow
+		b.remaining = b.capacity - min(uint(count.(int64)), b.capacity)
 		return b.State(), nil
 	}
 }
@@ -85,4 +82,12 @@ func New(network, address string, readTimeout, writeTimeout time.Duration) (*Sto
 			return redis.Dial(network, address)
 		}, 5),
 	}, nil
+}
+
+func min(a, b uint) uint {
+	if a < b {
+		return a
+	} else {
+		return b
+	}
 }
