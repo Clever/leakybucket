@@ -98,7 +98,7 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 			t.Fatalf("Did not observe correct bucket states. Saw %d distinct remaining values instead of %d: %v",
 				len(remaining), n, keys)
 		}
-		if len(errors) != 1 && errors[0] != ErrorFull {
+		if !(len(errors) == 1 && errors[0] == ErrorFull) {
 			t.Fatalf("Did not observe one full error: %#v", errors)
 		}
 	}
