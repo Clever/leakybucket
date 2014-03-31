@@ -53,6 +53,10 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return b.State(), err
 	} else {
 		b.remaining = b.capacity - uint(count.(int64))
+		if b.remaining > b.capacity {
+			// We overflowed because of a race condition
+			b.remaining = 0
+		}
 		return b.State(), nil
 	}
 }
