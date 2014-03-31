@@ -1,7 +1,6 @@
 package leakybucket
 
 import (
-	"log"
 	"math"
 	"sync"
 	"testing"
