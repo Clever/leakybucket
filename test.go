@@ -1,7 +1,6 @@
 package leakybucket
 
 import (
-	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -66,7 +65,7 @@ func AddTest(s Storage) func(*testing.T) {
 
 		if _, err := bucket.Add(1); err == nil {
 			t.Fatalf("expected ErrorFull, received no error")
-		} else if fmt.Sprint(err) != "add exceeds free capacity" {
+		} else if err != ErrorFull {
 			t.Fatalf("expected ErrorFull, received %v", err)
 		}
 	}
