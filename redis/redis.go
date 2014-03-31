@@ -41,7 +41,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return b.State(), leakybucket.ErrorFull
 	}
 
-	// If set returns nil, that means the key alredy exists.
+	// If SETNX doesn't return nil, we just set the key. Otherwise, it already exists.
 	if set, err := conn.Do("SET", b.name, amount, "NX", "EX", int(b.rate.Seconds())); err != nil {
 		return b.State(), err
 	} else if set != nil {
