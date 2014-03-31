@@ -3,7 +3,6 @@ package redis
 import (
 	"github.com/Clever/leakybucket"
 	"github.com/garyburd/redigo/redis"
-	"strconv"
 	"time"
 )
 
@@ -38,15 +37,11 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	conn := b.pool.Get()
 	defer conn.Close()
 
-	if tokens, err := conn.Do("GET", b.name); err != nil {
-		return b.State(), err
-	} else if tokens == nil {
-	} else if current, err := strconv.Atoi(string(tokens.([]uint8))); err != nil {
-		return b.State(), err
-	} else if uint(current)+amount > b.capacity {
+	if amount > b.remaining {
 		return b.State(), leakybucket.ErrorFull
 	}
 
+	// If set returns nil, that means the key alredy exists.
 	if set, err := conn.Do("SET", b.name, amount, "NX", "EX", int(b.rate.Seconds())); err != nil {
 		return b.State(), err
 	} else if set != nil {
