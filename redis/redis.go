@@ -45,7 +45,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	if set, err := conn.Do("SET", b.name, amount, "NX", "EX", int(b.rate.Seconds())); err != nil {
 		return b.State(), err
 	} else if set != nil {
-		b.remaining -= amount
+		b.remaining = b.capacity - amount
 		return b.State(), nil
 	}
 
