@@ -36,32 +36,20 @@ func AddTest(s Storage) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		if state, err := bucket.Add(1); err != nil {
-			t.Fatal(err)
-		} else if bucket.Remaining() != state.Remaining {
-			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
-				bucket.Remaining(), state.Remaining)
-		} else if state.Remaining != 9 {
-			t.Fatalf("expected 9 remaining, got %d", state.Remaining)
+		addAndTestRemaining := func(add, remaining uint) {
+			if state, err := bucket.Add(add); err != nil {
+				t.Fatal(err)
+			} else if bucket.Remaining() != state.Remaining {
+				t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
+					bucket.Remaining(), state.Remaining)
+			} else if state.Remaining != remaining {
+				t.Fatalf("expected %d remaining, got %d", remaining, state.Remaining)
+			}
 		}
 
-		if state, err := bucket.Add(3); err != nil {
-			t.Fatal(err)
-		} else if bucket.Remaining() != state.Remaining {
-			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
-				bucket.Remaining(), state.Remaining)
-		} else if state.Remaining != 6 {
-			t.Fatalf("expected 6 remaining, got %d", state.Remaining)
-		}
-
-		if state, err := bucket.Add(6); err != nil {
-			t.Fatal(err)
-		} else if bucket.Remaining() != state.Remaining {
-			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
-				bucket.Remaining(), state.Remaining)
-		} else if state.Remaining != 0 {
-			t.Fatalf("expected 0 remaining, got %d", state.Remaining)
-		}
+		addAndTestRemaining(1, 9)
+		addAndTestRemaining(3, 6)
+		addAndTestRemaining(6, 0)
 
 		if _, err := bucket.Add(1); err == nil {
 			t.Fatalf("expected ErrorFull, received no error")
