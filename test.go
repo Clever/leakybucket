@@ -27,6 +27,35 @@ func CreateTest(s Storage) func(*testing.T) {
 	}
 }
 
+// AddTest returns a test that adding to a single bucket works.
+// It is meant to be used by leakybucket implementers who wish to test this.
+func AddTest(s Storage) func(*testing.T) {
+	return func(t *testing.T) {
+		bucket, err := s.Create("testbucket", 100, time.Minute)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if state, err := bucket.Add(1); err != nil {
+			t.Fatal(err)
+		} else if bucket.Remaining() != state.Remaining {
+			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
+				bucket.Remaining(), state.Remaining)
+		} else if remaining := bucket.Remaining(); remaining != 99 {
+			t.Fatalf("expected 99 remaining, got %d", remaining)
+		}
+
+		if state, err := bucket.Add(3); err != nil {
+			t.Fatal(err)
+		} else if bucket.Remaining() != state.Remaining {
+			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
+				bucket.Remaining(), state.Remaining)
+		} else if remaining := bucket.Remaining(); remaining != 96 {
+			t.Fatalf("expected 96 remaining, got %d", remaining)
+		}
+	}
+}
+
 // ThreadSafeAddTest returns a test that adding to a single bucket is thread-safe.
 // It is meant to be used by leakybucket implementers who wish to test this.
 func ThreadSafeAddTest(s Storage) func(*testing.T) {
