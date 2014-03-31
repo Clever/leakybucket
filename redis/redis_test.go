@@ -34,6 +34,7 @@ func TestAdd(t *testing.T) {
 }
 
 func TestThreadSafeAdd(t *testing.T) {
+	t.Skip()
 	flushDb()
 	leakybucket.ThreadSafeAddTest(getLocalStorage())(t)
 }
