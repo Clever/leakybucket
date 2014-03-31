@@ -1,6 +1,7 @@
 package leakybucket
 
 import (
+	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -31,7 +32,7 @@ func CreateTest(s Storage) func(*testing.T) {
 // It is meant to be used by leakybucket implementers who wish to test this.
 func AddTest(s Storage) func(*testing.T) {
 	return func(t *testing.T) {
-		bucket, err := s.Create("testbucket", 100, time.Minute)
+		bucket, err := s.Create("testbucket", 10, time.Minute)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -41,8 +42,8 @@ func AddTest(s Storage) func(*testing.T) {
 		} else if bucket.Remaining() != state.Remaining {
 			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
 				bucket.Remaining(), state.Remaining)
-		} else if remaining := bucket.Remaining(); remaining != 99 {
-			t.Fatalf("expected 99 remaining, got %d", remaining)
+		} else if state.Remaining != 9 {
+			t.Fatalf("expected 9 remaining, got %d", state.Remaining)
 		}
 
 		if state, err := bucket.Add(3); err != nil {
@@ -50,8 +51,23 @@ func AddTest(s Storage) func(*testing.T) {
 		} else if bucket.Remaining() != state.Remaining {
 			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
 				bucket.Remaining(), state.Remaining)
-		} else if remaining := bucket.Remaining(); remaining != 96 {
-			t.Fatalf("expected 96 remaining, got %d", remaining)
+		} else if state.Remaining != 6 {
+			t.Fatalf("expected 6 remaining, got %d", state.Remaining)
+		}
+
+		if state, err := bucket.Add(6); err != nil {
+			t.Fatal(err)
+		} else if bucket.Remaining() != state.Remaining {
+			t.Fatalf("expected bucket and state remaining to match, bucket is %d, state is %d",
+				bucket.Remaining(), state.Remaining)
+		} else if state.Remaining != 0 {
+			t.Fatalf("expected 0 remaining, got %d", state.Remaining)
+		}
+
+		if _, err := bucket.Add(1); err == nil {
+			t.Fatalf("expected ErrorFull, received no error")
+		} else if fmt.Sprint(err) != "add exceeds free capacity" {
+			t.Fatalf("expected ErrorFull, received %v", err)
 		}
 	}
 }
