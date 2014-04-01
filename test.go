@@ -92,7 +92,7 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 		wg.Wait()
 		if len(remaining) != n {
 			keys := []uint{}
-			for key, _ := range remaining {
+			for key := range remaining {
 				keys = append(keys, key)
 			}
 			t.Fatalf("Did not observe correct bucket states. Saw %d distinct remaining values instead of %d: %v",

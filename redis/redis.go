@@ -49,15 +49,17 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return b.State(), nil
 	}
 
-	if count, err := conn.Do("INCRBY", b.name, amount); err != nil {
+	count, err := conn.Do("INCRBY", b.name, amount)
+	if err != nil {
 		return b.State(), err
-	} else {
-		// Ensure we can't overflow
-		b.remaining = b.capacity - min(uint(count.(int64)), b.capacity)
-		return b.State(), nil
 	}
+
+	// Ensure we can't overflow
+	b.remaining = b.capacity - min(uint(count.(int64)), b.capacity)
+	return b.State(), nil
 }
 
+// Storage is a redis-based, non thread-safe leaky bucket factory.
 type Storage struct {
 	pool *redis.Pool
 }
@@ -87,7 +89,6 @@ func New(network, address string, readTimeout, writeTimeout time.Duration) (*Sto
 func min(a, b uint) uint {
 	if a < b {
 		return a
-	} else {
-		return b
 	}
+	return b
 }
