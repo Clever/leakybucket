@@ -34,6 +34,8 @@ func TestAdd(t *testing.T) {
 }
 
 func TestThreadSafeAdd(t *testing.T) {
+	// Redis Add is not thread safe. If you run this, the test should fail because it never received
+	// ErrorFull.
 	t.Skip()
 	flushDb()
 	leakybucket.ThreadSafeAddTest(getLocalStorage())(t)
