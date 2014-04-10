@@ -70,6 +70,14 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return b.State(), nil
 	}
 
+	if b.reset.Unix() < time.Now().Unix() {
+		ttl, err := conn.Do("PTTL", b.name)
+		if err != nil {
+			return b.State(), err
+		}
+		b.reset = time.Now().Add(time.Duration(ttl.(int64) * 1000000))
+	}
+
 	count, err := conn.Do("INCRBY", b.name, amount)
 	if err != nil {
 		return b.State(), err

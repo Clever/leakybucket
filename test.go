@@ -1,6 +1,8 @@
 package leakybucket
 
 import (
+	"errors"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -81,13 +83,26 @@ func AddResetTest(s Storage) func(*testing.T) {
 	}
 }
 
+func compareBucketTimes(a, b Bucket) error {
+	if a.Reset().Unix() == b.Reset().Unix() {
+		return nil
+	}
+	return errors.New(fmt.Sprintf("first has %#v reset, second has %#v reset", a.Reset().Unix(), b.Reset().Unix()))
+}
+func compareBuckets(a, b Bucket) error {
+	if a.Remaining() != b.Remaining() {
+		return errors.New(fmt.Sprintf("first has %d remaining, second has %d remaining", a.Remaining(), b.Remaining()))
+	}
+	return compareBucketTimes(a, b)
+}
+
 // FindOrCreateTest returns a test that the Create function is essentially a FindOrCreate: if you
 // create one bucket, wait some time, and create another bucket with the same name, all the
 // properties should be the same.
 // It is meant to be used by leakybucket implementers who wish to test this.
 func FindOrCreateTest(s Storage) func(*testing.T) {
 	return func(t *testing.T) {
-		bucket1, err := s.Create("testbucket", 10, time.Second)
+		bucket1, err := s.Create("testbucket", 10, time.Minute)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -97,19 +112,16 @@ func FindOrCreateTest(s Storage) func(*testing.T) {
 			t.Fatal(err)
 		}
 
-		time.Sleep(time.Second / 2)
+		time.Sleep(time.Second * 2)
 
 		bucket2, err := s.Create("testbucket", 10, time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		if bucket1.Remaining() != bucket2.Remaining() {
-			t.Fatalf("first has %d remaining, second has %d remaining", bucket1.Remaining(), bucket2.Remaining())
-		}
-
-		if bucket1.Reset().Unix() != bucket2.Reset().Unix() {
-			t.Fatalf("fist has %#v reset, second has %#v reset", bucket1.Reset().Unix(), bucket2.Reset().Unix())
+		err = compareBuckets(bucket1, bucket2)
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }
@@ -155,6 +167,45 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 		}
 		if !(len(errors) == 1 && errors[0] == ErrorFull) {
 			t.Fatalf("Did not observe one full error: %#v", errors)
+		}
+	}
+}
+
+func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
+	return func(t *testing.T) {
+		bucket1, err := s.Create("testbucket", 5, time.Millisecond)
+		if err != nil {
+			t.Fatal(err)
+		}
+		bucket2, err := s.Create("testbucket", 5, time.Millisecond)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = bucket1.Add(5)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = bucket2.Add(1)
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if err != ErrorFull {
+			t.Fatalf("expected ErrorFull, received %#v", err)
+		}
+		time.Sleep(time.Second * 2)
+		_, err = bucket2.Add(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = bucket1.Add(1)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = compareBucketTimes(bucket1, bucket2)
+		if err != nil {
+			t.Fatal(err)
 		}
 	}
 }

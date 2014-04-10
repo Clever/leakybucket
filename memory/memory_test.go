@@ -24,3 +24,7 @@ func TestReset(t *testing.T) {
 func TestFindOrCreate(t *testing.T) {
 	leakybucket.FindOrCreateTest(New())(t)
 }
+
+func TestBucketInstanceConsistencyTest(t *testing.T) {
+	leakybucket.BucketInstanceConsistencyTest(New())(t)
+}

@@ -51,3 +51,8 @@ func TestFindOrCreate(t *testing.T) {
 	flushDb()
 	leakybucket.FindOrCreateTest(getLocalStorage())(t)
 }
+
+func TestBucketInstanceConsistencyTest(t *testing.T) {
+	flushDb()
+	leakybucket.BucketInstanceConsistencyTest(getLocalStorage())(t)
+}
