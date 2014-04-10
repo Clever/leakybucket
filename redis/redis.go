@@ -3,6 +3,7 @@ package redis
 import (
 	"github.com/Clever/leakybucket"
 	"github.com/garyburd/redigo/redis"
+	"strconv"
 	"time"
 )
 
@@ -37,15 +38,27 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	conn := b.pool.Get()
 	defer conn.Close()
 
+	if count, err := conn.Do("GET", b.name); err != nil {
+		return b.State(), err
+	} else if count == nil {
+		b.remaining = b.capacity
+	} else if num, err := strconv.Atoi(string(count.([]uint8))); err != nil {
+		return b.State(), err
+	} else {
+		b.remaining = b.capacity - min(uint(num), b.capacity)
+	}
+
 	if amount > b.remaining {
 		return b.State(), leakybucket.ErrorFull
 	}
 
 	// If SETNX doesn't return nil, we just set the key. Otherwise, it already exists.
-	if set, err := conn.Do("SET", b.name, amount, "NX", "EX", int(b.rate.Seconds())); err != nil {
+	// Go y u no have Milliseconds method? Why only Seconds and Nanoseconds?
+	if set, err := conn.Do("SET", b.name, amount, "NX", "PX", int(b.rate.Nanoseconds()/1000000)); err != nil {
 		return b.State(), err
 	} else if set != nil {
 		b.remaining = b.capacity - amount
+		b.reset = time.Now().Add(b.rate)
 		return b.State(), nil
 	}
 
