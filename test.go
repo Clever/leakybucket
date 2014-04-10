@@ -59,6 +59,8 @@ func AddTest(s Storage) func(*testing.T) {
 	}
 }
 
+// AddResetTest returns a test that Add performs properly across reset time boundaries.
+// It is meant to be used by leakybucket implementers who wish to test this.
 func AddResetTest(s Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		bucket, err := s.Create("testbucket", 1, time.Millisecond)
