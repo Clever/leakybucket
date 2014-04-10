@@ -59,6 +59,26 @@ func AddTest(s Storage) func(*testing.T) {
 	}
 }
 
+func AddResetTest(s Storage) func(*testing.T) {
+	return func(t *testing.T) {
+		bucket, err := s.Create("testbucket", 1, time.Millisecond)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := bucket.Add(1); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(time.Millisecond * 2)
+		if state, err := bucket.Add(1); err != nil {
+			t.Fatal(err)
+		} else if state.Remaining != 0 {
+			t.Fatalf("expected full bucket, got %d", state.Remaining)
+		} else if state.Reset.Unix() < time.Now().Unix() {
+			t.Fatalf("reset time is in the past")
+		}
+	}
+}
+
 // ThreadSafeAddTest returns a test that adding to a single bucket is thread-safe.
 // It is meant to be used by leakybucket implementers who wish to test this.
 func ThreadSafeAddTest(s Storage) func(*testing.T) {
