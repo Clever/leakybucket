@@ -81,6 +81,39 @@ func AddResetTest(s Storage) func(*testing.T) {
 	}
 }
 
+// FindOrCreateTest returns a test that the Create function is essentially a FindOrCreate: if you
+// create one bucket, wait some time, and create another bucket with the same name, all the
+// properties should be the same.
+// It is meant to be used by leakybucket implementers who wish to test this.
+func FindOrCreateTest(s Storage) func(*testing.T) {
+	return func(t *testing.T) {
+		bucket1, err := s.Create("testbucket", 10, time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Some leakybucket implementations don't start the TTL until Add is called.
+		if _, err := bucket1.Add(1); err != nil {
+			t.Fatal(err)
+		}
+
+		time.Sleep(time.Second / 2)
+
+		bucket2, err := s.Create("testbucket", 10, time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		if bucket1.Remaining() != bucket2.Remaining() {
+			t.Fatalf("first has %d remaining, second has %d remaining", bucket1.Remaining(), bucket2.Remaining())
+		}
+
+		if bucket1.Reset().Unix() != bucket2.Reset().Unix() {
+			t.Fatalf("fist has %#v reset, second has %#v reset", bucket1.Reset().Unix(), bucket2.Reset().Unix())
+		}
+	}
+}
+
 // ThreadSafeAddTest returns a test that adding to a single bucket is thread-safe.
 // It is meant to be used by leakybucket implementers who wish to test this.
 func ThreadSafeAddTest(s Storage) func(*testing.T) {

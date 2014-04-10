@@ -20,3 +20,7 @@ func TestThreadSafeAdd(t *testing.T) {
 func TestReset(t *testing.T) {
 	leakybucket.AddResetTest(New())(t)
 }
+
+func TestFindOrCreate(t *testing.T) {
+	leakybucket.FindOrCreateTest(New())(t)
+}

@@ -46,3 +46,8 @@ func TestReset(t *testing.T) {
 	flushDb()
 	leakybucket.AddResetTest(getLocalStorage())(t)
 }
+
+func TestFindOrCreate(t *testing.T) {
+	flushDb()
+	leakybucket.FindOrCreateTest(getLocalStorage())(t)
+}

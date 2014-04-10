@@ -33,6 +33,14 @@ func (b *bucket) State() leakybucket.BucketState {
 	return leakybucket.BucketState{b.Capacity(), b.Remaining(), b.Reset()}
 }
 
+func byteArrayToUint(arr []uint8) (uint, error) {
+	if num, err := strconv.Atoi(string(arr)); err != nil {
+		return 0, err
+	} else {
+		return uint(num), err
+	}
+}
+
 // Add to the bucket.
 func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	conn := b.pool.Get()
@@ -42,7 +50,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return b.State(), err
 	} else if count == nil {
 		b.remaining = b.capacity
-	} else if num, err := strconv.Atoi(string(count.([]uint8))); err != nil {
+	} else if num, err := byteArrayToUint(count.([]uint8)); err != nil {
 		return b.State(), err
 	} else {
 		b.remaining = b.capacity - min(uint(num), b.capacity)
@@ -79,15 +87,36 @@ type Storage struct {
 
 // Create a bucket.
 func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakybucket.Bucket, error) {
-	b := &bucket{
-		name:      name,
-		capacity:  capacity,
-		remaining: capacity,
-		reset:     time.Now().Add(rate),
-		rate:      rate,
-		pool:      s.pool,
+	conn := s.pool.Get()
+	defer conn.Close()
+
+	if count, err := conn.Do("GET", name); err != nil {
+		return nil, err
+	} else if count == nil {
+		b := &bucket{
+			name:      name,
+			capacity:  capacity,
+			remaining: capacity,
+			reset:     time.Now().Add(rate),
+			rate:      rate,
+			pool:      s.pool,
+		}
+		return b, nil
+	} else if num, err := byteArrayToUint(count.([]uint8)); err != nil {
+		return nil, err
+	} else if ttl, err := conn.Do("PTTL", name); err != nil {
+		return nil, err
+	} else {
+		b := &bucket{
+			name:      name,
+			capacity:  capacity,
+			remaining: capacity - min(capacity, num),
+			reset:     time.Now().Add(time.Duration(ttl.(int64) * 1000000)),
+			rate:      rate,
+			pool:      s.pool,
+		}
+		return b, nil
 	}
-	return b, nil
 }
 
 // New initializes the connection to redis.
