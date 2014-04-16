@@ -43,6 +43,21 @@ func byteArrayToUint(arr []uint8) (uint, error) {
 
 var millisecond = int64(time.Millisecond)
 
+func (b *bucket) updateOldReset() error {
+	conn := b.pool.Get()
+	defer conn.Close()
+
+	if b.reset.Unix() > time.Now().Unix() {
+		return nil
+	}
+	ttl, err := conn.Do("PTTL", b.name)
+	if err != nil {
+		return err
+	}
+	b.reset = time.Now().Add(time.Duration(ttl.(int64) * millisecond))
+	return nil
+}
+
 // Add to the bucket.
 func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	conn := b.pool.Get()
@@ -59,6 +74,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	}
 
 	if amount > b.remaining {
+		b.updateOldReset()
 		return b.State(), leakybucket.ErrorFull
 	}
 
@@ -72,13 +88,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return b.State(), nil
 	}
 
-	if b.reset.Unix() < time.Now().Unix() {
-		ttl, err := conn.Do("PTTL", b.name)
-		if err != nil {
-			return b.State(), err
-		}
-		b.reset = time.Now().Add(time.Duration(ttl.(int64) * millisecond))
-	}
+	b.updateOldReset()
 
 	count, err := conn.Do("INCRBY", b.name, amount)
 	if err != nil {

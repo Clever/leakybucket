@@ -171,8 +171,11 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 	}
 }
 
+// BucketInstanceConsistencyTest returns a test that two instances of a leakybucket pointing to the
+// same remote bucket keep consistent state with the remote.
 func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
 	return func(t *testing.T) {
+		// Create two bucket instances pointing to the same remote bucket
 		bucket1, err := s.Create("testbucket", 5, time.Millisecond)
 		if err != nil {
 			t.Fatal(err)
@@ -181,6 +184,8 @@ func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		// Fill up the remote bucket via the first instance and verify that the second instance
+		// becomes full.
 		_, err = bucket1.Add(5)
 		if err != nil {
 			t.Fatal(err)
@@ -193,6 +198,7 @@ func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
 			t.Fatalf("expected ErrorFull, received %#v", err)
 		}
 		time.Sleep(time.Second * 2)
+		// Wait for the bucket to empty and confirm that you can now add via both instances.
 		_, err = bucket2.Add(1)
 		if err != nil {
 			t.Fatal(err)
@@ -201,6 +207,25 @@ func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
 		_, err = bucket1.Add(1)
 		if err != nil {
 			t.Fatal(err)
+		}
+
+		err = compareBucketTimes(bucket1, bucket2)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Wait for the bucket to empty and confirm that if we fill it up the bucket via one
+		// instance, then try to add to the second instance, it has the right reset time.
+		time.Sleep(time.Second * 2)
+
+		_, err = bucket1.Add(5)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		_, err = bucket2.Add(1)
+		if err == nil {
+			t.Fatal("expected an error")
 		}
 
 		err = compareBucketTimes(bucket1, bucket2)
