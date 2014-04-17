@@ -23,6 +23,13 @@ func flushDb() {
 	}
 }
 
+func TestInvalidHost(t *testing.T) {
+	_, err := New("tcp", "localhost:6378")
+	if err == nil {
+		t.Fatalf("expected error connecting to invalid host")
+	}
+}
+
 func TestCreate(t *testing.T) {
 	flushDb()
 	leakybucket.CreateTest(getLocalStorage())(t)

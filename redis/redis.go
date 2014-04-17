@@ -141,11 +141,18 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 
 // New initializes the connection to redis.
 func New(network, address string) (*Storage, error) {
-	return &Storage{
+	s := &Storage{
 		pool: redis.NewPool(func() (redis.Conn, error) {
 			return redis.Dial(network, address)
-		}, 5),
-	}, nil
+		}, 5)}
+	// When using a connection pool, you only get connection errors while trying to send commands.
+	// Try to PING so we can fail-fast in the case of invalid address.
+	conn := s.pool.Get()
+	defer conn.Close()
+	if _, err := conn.Do("PING"); err != nil {
+		return nil, err
+	}
+	return s, nil
 }
 
 func min(a, b uint) uint {
