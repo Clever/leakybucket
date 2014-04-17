@@ -140,7 +140,7 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 }
 
 // New initializes the connection to redis.
-func New(network, address string, readTimeout, writeTimeout time.Duration) (*Storage, error) {
+func New(network, address string) (*Storage, error) {
 	return &Storage{
 		pool: redis.NewPool(func() (redis.Conn, error) {
 			return redis.Dial(network, address)

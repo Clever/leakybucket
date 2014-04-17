@@ -6,7 +6,7 @@ import (
 )
 
 func getLocalStorage() *Storage {
-	storage, err := New("tcp", "localhost:6379", 0, 0)
+	storage, err := New("tcp", "localhost:6379")
 	if err != nil {
 		panic(err)
 	}
