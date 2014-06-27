@@ -90,8 +90,7 @@ func TestFastAccess(t *testing.T) {
 	close(hold) // Let all concurrent requests start
 	wg.Wait()   // Wait for all concurrent requests to finish
 
-	pool := s.pool
-	conn := pool.Get()
+	conn := s.pool.Get()
 	defer conn.Close()
 
 	if exists, err := conn.Do("GET", "testbucket"); err != nil {
