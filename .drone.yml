@@ -1,5 +1,6 @@
 image: go1.2
 script:
+  - ulimit -n 2560
   - make test
 services:
   - redis:2.6
