@@ -44,12 +44,13 @@ func byteArrayToUint(arr []uint8) (uint, error) {
 var millisecond = int64(time.Millisecond)
 
 func (b *bucket) updateOldReset() error {
-	conn := b.pool.Get()
-	defer conn.Close()
-
 	if b.reset.Unix() > time.Now().Unix() {
 		return nil
 	}
+
+	conn := b.pool.Get()
+	defer conn.Close()
+
 	ttl, err := conn.Do("PTTL", b.name)
 	if err != nil {
 		return err
@@ -78,22 +79,19 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return b.State(), leakybucket.ErrorFull
 	}
 
-	// If SETNX doesn't return nil, we just set the key. Otherwise, it already exists.
 	// Go y u no have Milliseconds method? Why only Seconds and Nanoseconds?
-	if set, err := conn.Do("SET", b.name, amount, "NX", "PX", int(b.rate.Nanoseconds()/millisecond)); err != nil {
-		return b.State(), err
-	} else if set != nil {
-		b.remaining = b.capacity - amount
-		b.reset = time.Now().Add(b.rate)
-		return b.State(), nil
-	}
-
-	b.updateOldReset()
+	expiry := int(b.rate.Nanoseconds() / millisecond)
 
 	count, err := conn.Do("INCRBY", b.name, amount)
 	if err != nil {
 		return b.State(), err
+	} else if uint(count.(int64)) == amount {
+		if _, err := conn.Do("PEXPIRE", b.name, expiry); err != nil {
+			return b.State(), err
+		}
 	}
+
+	b.updateOldReset()
 
 	// Ensure we can't overflow
 	b.remaining = b.capacity - min(uint(count.(int64)), b.capacity)
