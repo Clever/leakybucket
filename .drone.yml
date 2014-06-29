@@ -1,7 +1,7 @@
 image: go1.2
 script:
   - ulimit -n 2560
-  - make test
+  - ./test_drone.sh
 services:
   - redis:2.6
 notify:

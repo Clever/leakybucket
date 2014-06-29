@@ -2,13 +2,14 @@ package redis
 
 import (
 	"github.com/Clever/leakybucket"
+	"os"
 	"sync"
 	"testing"
 	"time"
 )
 
 func getLocalStorage() *Storage {
-	storage, err := New("tcp", "localhost:6379")
+	storage, err := New("tcp", os.Getenv("REDIS_URL"))
 	if err != nil {
 		panic(err)
 	}
