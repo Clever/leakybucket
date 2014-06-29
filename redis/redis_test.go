@@ -77,7 +77,7 @@ func TestFastAccess(t *testing.T) {
 	}
 	hold := make(chan struct{})
 	wg := sync.WaitGroup{}
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 50; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
