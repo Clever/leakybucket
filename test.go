@@ -176,11 +176,11 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		// Create two bucket instances pointing to the same remote bucket
-		bucket1, err := s.Create("testbucket", 5, time.Millisecond)
+		bucket1, err := s.Create("testbucket", 5, time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
-		bucket2, err := s.Create("testbucket", 5, time.Millisecond)
+		bucket2, err := s.Create("testbucket", 5, time.Second)
 		if err != nil {
 			t.Fatal(err)
 		}
