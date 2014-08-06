@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -eu
 
 # drone runs tests in a container w/ a linked redis
 # docker has its own convention around env vars for linked containers
