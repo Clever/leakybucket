@@ -3,7 +3,6 @@ package redis
 import (
 	"github.com/Clever/leakybucket"
 	"github.com/garyburd/redigo/redis"
-	"strconv"
 	"time"
 )
 
@@ -33,14 +32,6 @@ func (b *bucket) State() leakybucket.BucketState {
 	return leakybucket.BucketState{b.Capacity(), b.Remaining(), b.Reset()}
 }
 
-func byteArrayToUint(arr []uint8) (uint, error) {
-	if num, err := strconv.Atoi(string(arr)); err != nil {
-		return 0, err
-	} else {
-		return uint(num), err
-	}
-}
-
 var millisecond = int64(time.Millisecond)
 
 func (b *bucket) updateOldReset() error {
@@ -64,14 +55,15 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	conn := b.pool.Get()
 	defer conn.Close()
 
-	if count, err := conn.Do("GET", b.name); err != nil {
-		return b.State(), err
-	} else if count == nil {
-		b.remaining = b.capacity
-	} else if num, err := byteArrayToUint(count.([]uint8)); err != nil {
-		return b.State(), err
+	if count, err := redis.Uint64(conn.Do("GET", b.name)); err != nil {
+		// handle the key not being set
+		if err == redis.ErrNil {
+			b.remaining = b.capacity
+		} else {
+			return b.State(), err
+		}
 	} else {
-		b.remaining = b.capacity - min(uint(num), b.capacity)
+		b.remaining = b.capacity - min(uint(count), b.capacity)
 	}
 
 	if amount > b.remaining {
@@ -82,10 +74,10 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	// Go y u no have Milliseconds method? Why only Seconds and Nanoseconds?
 	expiry := int(b.rate.Nanoseconds() / millisecond)
 
-	count, err := conn.Do("INCRBY", b.name, amount)
+	count, err := redis.Uint64(conn.Do("INCRBY", b.name, amount))
 	if err != nil {
 		return b.State(), err
-	} else if uint(count.(int64)) == amount {
+	} else if uint(count) == amount {
 		if _, err := conn.Do("PEXPIRE", b.name, expiry); err != nil {
 			return b.State(), err
 		}
@@ -94,7 +86,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	b.updateOldReset()
 
 	// Ensure we can't overflow
-	b.remaining = b.capacity - min(uint(count.(int64)), b.capacity)
+	b.remaining = b.capacity - min(uint(count), b.capacity)
 	return b.State(), nil
 }
 
@@ -108,28 +100,27 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 	conn := s.pool.Get()
 	defer conn.Close()
 
-	if count, err := conn.Do("GET", name); err != nil {
-		return nil, err
-	} else if count == nil {
-		b := &bucket{
+	if count, err := redis.Uint64(conn.Do("GET", name)); err != nil {
+		if err != redis.ErrNil {
+			return nil, err
+		}
+		// return a standard bucket if key was not found
+		return &bucket{
 			name:      name,
 			capacity:  capacity,
 			remaining: capacity,
 			reset:     time.Now().Add(rate),
 			rate:      rate,
 			pool:      s.pool,
-		}
-		return b, nil
-	} else if num, err := byteArrayToUint(count.([]uint8)); err != nil {
-		return nil, err
-	} else if ttl, err := conn.Do("PTTL", name); err != nil {
+		}, nil
+	} else if ttl, err := redis.Int64(conn.Do("PTTL", name)); err != nil {
 		return nil, err
 	} else {
 		b := &bucket{
 			name:      name,
 			capacity:  capacity,
-			remaining: capacity - min(capacity, num),
-			reset:     time.Now().Add(time.Duration(ttl.(int64) * millisecond)),
+			remaining: capacity - min(capacity, uint(count)),
+			reset:     time.Now().Add(time.Duration(ttl * millisecond)),
 			rate:      rate,
 			pool:      s.pool,
 		}
