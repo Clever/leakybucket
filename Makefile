@@ -1,24 +1,26 @@
 SHELL := /bin/bash
-PKG = github.com/Clever/leakybucket
-SUBPKGSREL = memory redis
-SUBPKGS = $(addprefix $(PKG)/,$(SUBPKGSREL))
-PKGS = $(PKG) $(SUBPKGS)
+PKG := github.com/Clever/leakybucket
+SUBPKGSREL := memory redis
+SUBPKGS := $(addprefix $(PKG)/,$(SUBPKGSREL))
+PKGS := $(PKG) $(SUBPKGS)
+GOLINT := $(GOPATH)/bin/golint
 .PHONY: test $(PKGS) $(SUBPKGSREL)
+GOVERSION := $(shell go version | grep 1.5)
+ifeq "$(GOVERSION)" ""
+  $(error must be running Go version 1.5)
+endif
 
-REDIS_URL ?= localhost:6379
+export REDIS_URL ?= localhost:6379
 
 test: $(PKGS)
 
-$(PKGS):
-ifeq ($(LINT),1)
-	golint $(GOPATH)/src/$@*/**.go
-endif
+$(GOLINT):
+	go get github.com/golang/lint/golint
+
+$(PKGS): $(GOLINT)
 	go get -d -t $@
-ifeq ($(COVERAGE),1)
-	REDIS_URL=$(REDIS_URL) go test -cover -coverprofile=$(GOPATH)/src/$@/c.out $@ -test.v
-	go tool cover -html=$(GOPATH)/src/$@/c.out
-else
-	REDIS_URL=$(REDIS_URL) go test $@ -test.v
-endif
+	$(GOLINT) $(GOPATH)/src/$@/*.go
+	gofmt -w=true $(GOPATH)/src/$@/*.go
+	go test $@ -test.v
 
 $(SUBPKGSREL): %: $(addprefix $(PKG)/, %)

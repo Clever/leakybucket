@@ -1,4 +1,4 @@
-image: go1.2
+image: clever/drone-go:1.5
 notify:
   email:
     recipients:
@@ -10,6 +10,6 @@ notify:
     webhook_url: $$slack_webhook
 script:
 - ulimit -n 2560
-- ./test_drone.sh
+- make test
 services:
 - redis:2.6
