@@ -1,8 +1,10 @@
 package memory
 
 import (
-	"github.com/Clever/leakybucket"
+	"sync"
 	"time"
+
+	"github.com/Clever/leakybucket"
 )
 
 type bucket struct {
@@ -10,6 +12,7 @@ type bucket struct {
 	remaining uint
 	reset     time.Time
 	rate      time.Duration
+	mutex     sync.Mutex
 }
 
 func (b *bucket) Capacity() uint {
@@ -28,6 +31,8 @@ func (b *bucket) Reset() time.Time {
 
 // Add to the bucket.
 func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	if time.Now().After(b.reset) {
 		b.reset = time.Now().Add(b.rate)
 		b.remaining = b.capacity
