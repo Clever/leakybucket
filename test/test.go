@@ -1,4 +1,5 @@
-package leakybucket
+// Package test provides generic tests of the leakybucket interface.
+package test
 
 import (
 	"errors"
@@ -7,11 +8,13 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Clever/leakybucket"
 )
 
 // CreateTest returns a test of bucket creation for a given storage backend.
 // It is meant to be used by leakybucket implementers who wish to test this.
-func CreateTest(s Storage) func(*testing.T) {
+func CreateTest(s leakybucket.Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		now := time.Now()
 		bucket, err := s.Create("testbucket", 100, time.Minute)
@@ -31,7 +34,7 @@ func CreateTest(s Storage) func(*testing.T) {
 
 // AddTest returns a test that adding to a single bucket works.
 // It is meant to be used by leakybucket implementers who wish to test this.
-func AddTest(s Storage) func(*testing.T) {
+func AddTest(s leakybucket.Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		bucket, err := s.Create("testbucket", 10, time.Minute)
 		if err != nil {
@@ -55,7 +58,7 @@ func AddTest(s Storage) func(*testing.T) {
 
 		if _, err := bucket.Add(1); err == nil {
 			t.Fatalf("expected ErrorFull, received no error")
-		} else if err != ErrorFull {
+		} else if err != leakybucket.ErrorFull {
 			t.Fatalf("expected ErrorFull, received %v", err)
 		}
 	}
@@ -63,7 +66,7 @@ func AddTest(s Storage) func(*testing.T) {
 
 // AddResetTest returns a test that Add performs properly across reset time boundaries.
 // It is meant to be used by leakybucket implementers who wish to test this.
-func AddResetTest(s Storage) func(*testing.T) {
+func AddResetTest(s leakybucket.Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		bucket, err := s.Create("testbucket", 1, time.Millisecond)
 		if err != nil {
@@ -83,13 +86,13 @@ func AddResetTest(s Storage) func(*testing.T) {
 	}
 }
 
-func compareBucketTimes(a, b Bucket) error {
+func compareBucketTimes(a, b leakybucket.Bucket) error {
 	if a.Reset().Unix() == b.Reset().Unix() {
 		return nil
 	}
 	return errors.New(fmt.Sprintf("first has %#v reset, second has %#v reset", a.Reset().Unix(), b.Reset().Unix()))
 }
-func compareBuckets(a, b Bucket) error {
+func compareBuckets(a, b leakybucket.Bucket) error {
 	if a.Remaining() != b.Remaining() {
 		return errors.New(fmt.Sprintf("first has %d remaining, second has %d remaining", a.Remaining(), b.Remaining()))
 	}
@@ -100,7 +103,7 @@ func compareBuckets(a, b Bucket) error {
 // create one bucket, wait some time, and create another bucket with the same name, all the
 // properties should be the same.
 // It is meant to be used by leakybucket implementers who wish to test this.
-func FindOrCreateTest(s Storage) func(*testing.T) {
+func FindOrCreateTest(s leakybucket.Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		bucket1, err := s.Create("testbucket", 10, time.Minute)
 		if err != nil {
@@ -128,7 +131,7 @@ func FindOrCreateTest(s Storage) func(*testing.T) {
 
 // ThreadSafeAddTest returns a test that adding to a single bucket is thread-safe.
 // It is meant to be used by leakybucket implementers who wish to test this.
-func ThreadSafeAddTest(s Storage) func(*testing.T) {
+func ThreadSafeAddTest(s leakybucket.Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		// Make a bucket of size `n`. Spawn `n+1` goroutines that each try to take one token.
 		// We should see the bucket transition through having `n-1`, `n-2`, ... 0 remaining capacity.
@@ -165,7 +168,7 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 			t.Fatalf("Did not observe correct bucket states. Saw %d distinct remaining values instead of %d: %v",
 				len(remaining), n, keys)
 		}
-		if !(len(errors) == 1 && errors[0] == ErrorFull) {
+		if !(len(errors) == 1 && errors[0] == leakybucket.ErrorFull) {
 			t.Fatalf("Did not observe one full error: %#v", errors)
 		}
 	}
@@ -173,7 +176,7 @@ func ThreadSafeAddTest(s Storage) func(*testing.T) {
 
 // BucketInstanceConsistencyTest returns a test that two instances of a leakybucket pointing to the
 // same remote bucket keep consistent state with the remote.
-func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
+func BucketInstanceConsistencyTest(s leakybucket.Storage) func(*testing.T) {
 	return func(t *testing.T) {
 		// Create two bucket instances pointing to the same remote bucket
 		bucket1, err := s.Create("testbucket", 5, time.Second)
@@ -194,7 +197,7 @@ func BucketInstanceConsistencyTest(s Storage) func(*testing.T) {
 		if err == nil {
 			t.Fatal("expected an error")
 		}
-		if err != ErrorFull {
+		if err != leakybucket.ErrorFull {
 			t.Fatalf("expected ErrorFull, received %#v", err)
 		}
 		time.Sleep(time.Second * 2)
