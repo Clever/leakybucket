@@ -14,6 +14,10 @@ func TestAdd(t *testing.T) {
 	test.AddTest(New())(t)
 }
 
+func TestAddResetTest(t *testing.T) {
+	test.AddResetTest(New())(t)
+}
+
 func TestThreadSafeAdd(t *testing.T) {
 	test.ThreadSafeAddTest(New())(t)
 }
