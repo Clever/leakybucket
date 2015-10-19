@@ -1,11 +1,13 @@
 package redis
 
 import (
-	"github.com/Clever/leakybucket"
 	"os"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Clever/leakybucket"
+	"github.com/Clever/leakybucket/test"
 )
 
 func getLocalStorage() *Storage {
@@ -35,12 +37,12 @@ func TestInvalidHost(t *testing.T) {
 
 func TestCreate(t *testing.T) {
 	flushDb()
-	leakybucket.CreateTest(getLocalStorage())(t)
+	test.CreateTest(getLocalStorage())(t)
 }
 
 func TestAdd(t *testing.T) {
 	flushDb()
-	leakybucket.AddTest(getLocalStorage())(t)
+	test.AddTest(getLocalStorage())(t)
 }
 
 func TestThreadSafeAdd(t *testing.T) {
@@ -49,22 +51,22 @@ func TestThreadSafeAdd(t *testing.T) {
 	// increment.
 	t.Skip()
 	flushDb()
-	leakybucket.ThreadSafeAddTest(getLocalStorage())(t)
+	test.ThreadSafeAddTest(getLocalStorage())(t)
 }
 
 func TestReset(t *testing.T) {
 	flushDb()
-	leakybucket.AddResetTest(getLocalStorage())(t)
+	test.AddResetTest(getLocalStorage())(t)
 }
 
 func TestFindOrCreate(t *testing.T) {
 	flushDb()
-	leakybucket.FindOrCreateTest(getLocalStorage())(t)
+	test.FindOrCreateTest(getLocalStorage())(t)
 }
 
 func TestBucketInstanceConsistencyTest(t *testing.T) {
 	flushDb()
-	leakybucket.BucketInstanceConsistencyTest(getLocalStorage())(t)
+	test.BucketInstanceConsistencyTest(getLocalStorage())(t)
 }
 
 // One implementation of redis leaky bucket had a bug where very fast access could result in us
@@ -106,5 +108,4 @@ func TestFastAccess(t *testing.T) {
 	if ttl.(int64) == -1 {
 		t.Fatal("no ttl set on bucket")
 	}
-
 }
