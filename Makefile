@@ -12,6 +12,8 @@ endif
 
 export REDIS_URL ?= localhost:6379
 
+export GO15VENDOREXPERIMENT = 1
+
 test: $(PKGS)
 
 $(GOLINT):
