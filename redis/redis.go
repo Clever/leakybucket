@@ -29,7 +29,7 @@ func (b *bucket) Reset() time.Time {
 }
 
 func (b *bucket) State() leakybucket.BucketState {
-	return leakybucket.BucketState{b.Capacity(), b.Remaining(), b.Reset()}
+	return leakybucket.BucketState{Capacity: b.Capacity(), Remaining: b.Remaining(), Reset: b.Reset()}
 }
 
 var millisecond = int64(time.Millisecond)

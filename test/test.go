@@ -2,7 +2,6 @@
 package test
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"sync"
@@ -90,11 +89,11 @@ func compareBucketTimes(a, b leakybucket.Bucket) error {
 	if a.Reset().Unix() == b.Reset().Unix() {
 		return nil
 	}
-	return errors.New(fmt.Sprintf("first has %#v reset, second has %#v reset", a.Reset().Unix(), b.Reset().Unix()))
+	return fmt.Errorf("first has %#v reset, second has %#v reset", a.Reset().Unix(), b.Reset().Unix())
 }
 func compareBuckets(a, b leakybucket.Bucket) error {
 	if a.Remaining() != b.Remaining() {
-		return errors.New(fmt.Sprintf("first has %d remaining, second has %d remaining", a.Remaining(), b.Remaining()))
+		return fmt.Errorf("first has %d remaining, second has %d remaining", a.Remaining(), b.Remaining())
 	}
 	return compareBucketTimes(a, b)
 }
@@ -151,7 +150,7 @@ func ThreadSafeAddTest(s leakybucket.Storage) func(*testing.T) {
 			defer wgErrors.Done()
 			count := 0
 			for err := range errors {
-				count += 1
+				count++
 				if err != leakybucket.ErrorFull {
 					t.Errorf("got an error that is not ErrorFull: %s", err)
 				}
@@ -169,7 +168,7 @@ func ThreadSafeAddTest(s leakybucket.Storage) func(*testing.T) {
 			defer wgRemaining.Done()
 			count := 0
 			for _ = range remaining {
-				count += 1
+				count++
 			}
 			if count != n {
 				t.Errorf("Did not observe correct bucket states. Saw %d remaining values instead of %d", count, n)
