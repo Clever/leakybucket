@@ -1,31 +1,56 @@
 package redis
 
 import (
+	"sync"
+	"time"
+
 	"github.com/Clever/leakybucket"
 	"github.com/garyburd/redigo/redis"
-	"time"
 )
 
 type bucket struct {
-	name                string
-	capacity, remaining uint
-	reset               time.Time
-	rate                time.Duration
-	pool                *redis.Pool
+	name           string
+	capacity       uint
+	capacityMutex  sync.Mutex
+	remaining      uint
+	remainingMutex sync.RWMutex
+	reset          time.Time
+	resetMutex     sync.RWMutex
+	rate           time.Duration
+	pool           *redis.Pool
 }
 
 func (b *bucket) Capacity() uint {
+	b.capacityMutex.Lock()
+	defer b.capacityMutex.Unlock()
 	return b.capacity
 }
 
 // Remaining space in the bucket.
 func (b *bucket) Remaining() uint {
+	b.remainingMutex.RLock()
+	defer b.remainingMutex.RUnlock()
 	return b.remaining
+}
+
+func (b *bucket) setRemaining(x uint) {
+	b.remainingMutex.Lock()
+	defer b.remainingMutex.Unlock()
+	b.remaining = x
 }
 
 // Reset returns when the bucket will be drained.
 func (b *bucket) Reset() time.Time {
+	b.resetMutex.RLock()
+	defer b.resetMutex.RUnlock()
 	return b.reset
+}
+
+// Reset returns when the bucket will be drained.
+func (b *bucket) setReset(x time.Time) {
+	b.resetMutex.Lock()
+	defer b.resetMutex.Unlock()
+	b.reset = x
 }
 
 func (b *bucket) State() leakybucket.BucketState {
@@ -35,7 +60,7 @@ func (b *bucket) State() leakybucket.BucketState {
 var millisecond = int64(time.Millisecond)
 
 func (b *bucket) updateOldReset() error {
-	if b.reset.Unix() > time.Now().Unix() {
+	if b.Reset().Unix() > time.Now().Unix() {
 		return nil
 	}
 
@@ -46,7 +71,7 @@ func (b *bucket) updateOldReset() error {
 	if err != nil {
 		return err
 	}
-	b.reset = time.Now().Add(time.Duration(ttl.(int64) * millisecond))
+	b.setReset(time.Now().Add(time.Duration(ttl.(int64) * millisecond)))
 	return nil
 }
 
@@ -58,15 +83,16 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	if count, err := redis.Uint64(conn.Do("GET", b.name)); err != nil {
 		// handle the key not being set
 		if err == redis.ErrNil {
-			b.remaining = b.capacity
+			b.setRemaining(b.Capacity())
 		} else {
 			return b.State(), err
 		}
 	} else {
-		b.remaining = b.capacity - min(uint(count), b.capacity)
+		x := b.Capacity()
+		b.setRemaining(x - min(uint(count), x))
 	}
 
-	if amount > b.remaining {
+	if amount > b.Remaining() {
 		b.updateOldReset()
 		return b.State(), leakybucket.ErrorFull
 	}
@@ -86,7 +112,8 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	b.updateOldReset()
 
 	// Ensure we can't overflow
-	b.remaining = b.capacity - min(uint(count), b.capacity)
+	x := b.Capacity()
+	b.setRemaining(x - min(uint(count), x))
 	return b.State(), nil
 }
 
