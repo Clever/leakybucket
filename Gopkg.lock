@@ -2,12 +2,6 @@
 
 
 [[projects]]
-  branch = "master"
-  name = "github.com/Clever/leakybucket"
-  packages = [".","test"]
-  revision = "505cc2b415c9ceab65d8b1510f6f2986ac8ed3c5"
-
-[[projects]]
   name = "github.com/garyburd/redigo"
   packages = ["internal","redis"]
   revision = "47dc60e71eed504e3ef8e77ee3c6fe720f3be57f"
@@ -16,6 +10,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "528780449c9a984752d552ff651355e54a92f63b88ed0dcbbc32c9c1444b0dad"
+  inputs-digest = "8c6ef784fdca61573d75ceb1f28f9b82e47614ebf0e8f7e87c29fadb25b243a1"
   solver-name = "gps-cdcl"
   solver-version = 1
