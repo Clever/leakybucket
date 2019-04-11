@@ -135,7 +135,7 @@ func New(network, address string) (*Storage, error) {
 	timeout := time.Duration(5000 * millisecond) // 5 seconds
 	s := &Storage{
 		pool: redis.NewPool(func() (redis.Conn, error) {
-			return redis.Dial(network, address, redis.DialReadTimeout(timeout))
+			return redis.Dial(network, address, redis.DialReadTimeout(timeout), redis.DialWriteTimeout(timeout))
 		}, 5)}
 	// When using a connection pool, you only get connection errors while trying to send commands.
 	// Try to PING so we can fail-fast in the case of invalid address.
