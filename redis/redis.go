@@ -130,6 +130,8 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 
 // New initializes the connection to redis.
 func New(network, address string) (*Storage, error) {
+	// If we find we need to change this timeout per application, we may want to expose
+	// this as an extra config option
 	timeout := time.Duration(5000 * millisecond) // 5 seconds
 	s := &Storage{
 		pool: redis.NewPool(func() (redis.Conn, error) {
