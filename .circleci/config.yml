@@ -3,7 +3,7 @@ jobs:
   build:
     working_directory: /go/src/github.com/Clever/leakybucket
     docker:
-    - image: circleci/golang:1.10.3-stretch
+    - image: circleci/golang:1.12-stretch
     - image: redis@sha256:858b1677143e9f8455821881115e276f6177221de1c663d0abef9b2fda02d065
     environment:
       CIRCLE_ARTIFACTS: /tmp/circleci-artifacts
