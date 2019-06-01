@@ -5,7 +5,7 @@ include golang.mk
 SHELL := /bin/bash
 PKG := github.com/Clever/leakybucket
 PKGS := $(shell go list ./...)
-$(eval $(call golang-version-check,1.10))
+$(eval $(call golang-version-check,1.12))
 
 export REDIS_URL ?= localhost:6379
 
