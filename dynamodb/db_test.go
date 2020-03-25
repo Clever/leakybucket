@@ -5,8 +5,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-// _createTable is a method used for testing. For production workloads dynamodb tables
-// should be managed by the end user
 func createTable(db *bucketDB) error {
 	input := &dynamodb.CreateTableInput{
 		TableName:            aws.String(db.tableName),
@@ -22,7 +20,6 @@ func createTable(db *bucketDB) error {
 	})
 }
 
-// _deleteTable is a method used for testing
 func deleteTable(db *bucketDB) error {
 	if _, err := db.ddb.DeleteTable(&dynamodb.DeleteTableInput{
 		TableName: aws.String(db.tableName),
