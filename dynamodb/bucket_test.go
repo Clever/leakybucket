@@ -20,8 +20,8 @@ func setupTestTable(t *testing.T, table string, s *session.Session) {
 		ddb:       ddb,
 		tableName: table,
 	}
-	db._deleteTable()
-	err := db._createTable()
+	deleteTable(db)
+	err := createTable(db)
 	require.NoError(t, err)
 }
 

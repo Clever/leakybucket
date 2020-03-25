@@ -14,7 +14,6 @@ dynamodb-test:
 
 test: $(PKGS) dynamodb-test
 $(PKGS): golang-test-all-deps
-	go get -d -t $@
 	$(call golang-test-all,$@)
 
 

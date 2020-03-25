@@ -13,7 +13,7 @@ import (
 var _ leakybucket.Bucket = &bucket{}
 
 type bucket struct {
-	name                dbKey
+	name                string
 	capacity, remaining uint
 	reset               time.Time
 	rate                time.Duration
@@ -35,10 +35,7 @@ func (b *bucket) Reset() time.Time {
 	return b.reset
 }
 
-// Add to the bucket. This isn't a traditional leakybucket. It does not "drip" at a steady rate.
-// Rather, it treats the rate as a window for the specified capacity. If amount exceeds the
-// remaining capacity at any stage during the sliding window it will return `leakybucket.ErrorFull`
-// as expected
+// Add to the bucket.
 func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	// db.GetItem(bucket)
 	// if expired -> flush
@@ -48,7 +45,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	if err != nil {
 		return b.state(), err
 	}
-	if dbBucket.isExpired() {
+	if dbBucket.expired() {
 		dbBucket, err = b.db.flushBucket(*dbBucket, time.Now().Add(b.rate))
 		if err != nil {
 			if err != errConcurrentFlush {
@@ -99,7 +96,7 @@ type Storage struct {
 // - From scratch using the values provided
 func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakybucket.Bucket, error) {
 	bucket := &bucket{
-		name:      dbKey(name),
+		name:      name,
 		capacity:  capacity,
 		remaining: capacity,
 		reset:     time.Now().Add(rate),
@@ -117,12 +114,13 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 		}
 	} else {
 		// guarantee the bucket is in a good state
-		if dbBucket.isExpired() {
+		if dbBucket.expired() {
+			// Adding 0 will force all checks and refresh the window
 			if _, err := bucket.Add(0); err != nil {
 				return nil, err
 			}
 		}
-		bucket.remaining = capacity - dbBucket.Value
+		bucket.remaining = max(capacity-dbBucket.Value, 0)
 		bucket.reset = dbBucket.Expiration
 	}
 
@@ -148,6 +146,13 @@ func New(tableName string, s *session.Session) (*Storage, error) {
 	return &Storage{
 		db: db,
 	}, nil
+}
+
+func max(a, b uint) uint {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func min(a, b uint) uint {

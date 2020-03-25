@@ -12,12 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 )
 
-type dbKey string
-
 type db interface {
 	createBucket(bucket ddbBucket) error
-	bucket(pk dbKey) (*ddbBucket, error)
-	incrementBucketValue(pk dbKey, amount, capacity uint) (*ddbBucket, error)
+	bucket(name string) (*ddbBucket, error)
+	incrementBucketValue(name string, amount, capacity uint) (*ddbBucket, error)
 	flushBucket(bucket ddbBucket, expiration time.Time) (*ddbBucket, error)
 }
 
@@ -59,6 +57,7 @@ func (d ddbBucketStatePrimaryKey) KeySchema() []*dynamodb.KeySchemaElement {
 // ddbBucket implements the db interface using dynamodb as the backend
 type ddbBucket struct {
 	ddbBucketStatePrimaryKey
+	// Value is the sum of all increments in the current sliding window for the bucket
 	Value uint `dynamodbav:"value"`
 	// Expiration indicates when the current rate limit expires. We opt not to use DyanamoDB TTLs
 	// because they don't have strong deletion guarantees.
@@ -67,7 +66,8 @@ type ddbBucket struct {
 	// which an item truly gets deleted after expiration is specific to the nature of the workload
 	// and the size of the table."
 	Expiration time.Time `dynamodbav:"expiration,unixtime"`
-	Version    uint      `dynamodbav:"version"`
+	// Version is an internal field used to control flushing/draining the Value field concurrently
+	Version uint `dynamodbav:"version"`
 }
 
 func newDDBBucket(name string, expiration time.Time) ddbBucket {
@@ -94,47 +94,18 @@ func encodeBucket(b ddbBucket) (map[string]*dynamodb.AttributeValue, error) {
 
 }
 
-func (b *ddbBucket) isExpired() bool {
+func (b *ddbBucket) expired() bool {
 	return time.Now().After(b.Expiration)
 }
 
-// _createTable is a method used for testing. For production workloads dynamodb tables
-// should be managed by the end user
-func (db *bucketDB) _createTable() error {
-	input := &dynamodb.CreateTableInput{
-		TableName:            aws.String(db.tableName),
-		BillingMode:          aws.String(dynamodb.BillingModePayPerRequest),
-		AttributeDefinitions: ddbBucketStatePrimaryKey{}.AttributeDefinitions(),
-		KeySchema:            ddbBucketStatePrimaryKey{}.KeySchema(),
-	}
-	if _, err := db.ddb.CreateTable(input); err != nil {
-		return err
-	}
-	return db.ddb.WaitUntilTableExists(&dynamodb.DescribeTableInput{
-		TableName: aws.String(db.tableName),
-	})
-}
-
-// _deleteTable is a method used for testing
-func (db *bucketDB) _deleteTable() error {
-	if _, err := db.ddb.DeleteTable(&dynamodb.DeleteTableInput{
-		TableName: aws.String(db.tableName),
-	}); err != nil {
-		return err
-	}
-	return db.ddb.WaitUntilTableNotExists(&dynamodb.DescribeTableInput{
-		TableName: aws.String(db.tableName),
-	})
-}
-
-func (db *bucketDB) key(pk dbKey) (map[string]*dynamodb.AttributeValue, error) {
+func (db *bucketDB) key(name string) (map[string]*dynamodb.AttributeValue, error) {
 	return dynamodbattribute.MarshalMap(ddbBucketStatePrimaryKey{
-		Name: string(pk),
+		Name: string(name),
 	})
 }
 
-func (db *bucketDB) bucket(pk dbKey) (*ddbBucket, error) {
-	key, err := db.key(pk)
+func (db *bucketDB) bucket(name string) (*ddbBucket, error) {
+	key, err := db.key(name)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +128,6 @@ func (db *bucketDB) createBucket(bucket ddbBucket) error {
 	if err != nil {
 		return err
 	}
-	// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.OperatorsAndFunctions.html
 	_, err = db.ddb.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(db.tableName),
 		Item:      data,
@@ -170,8 +140,8 @@ func (db *bucketDB) createBucket(bucket ddbBucket) error {
 	return err
 }
 
-func (db *bucketDB) incrementBucketValue(pk dbKey, amount, capacity uint) (*ddbBucket, error) {
-	key, err := db.key(pk)
+func (db *bucketDB) incrementBucketValue(name string, amount, capacity uint) (*ddbBucket, error) {
+	key, err := db.key(name)
 	if err != nil {
 		return nil, err
 	}
@@ -223,7 +193,6 @@ func (db *bucketDB) flushBucket(bucket ddbBucket, expiration time.Time) (*ddbBuc
 	if err != nil {
 		return nil, err
 	}
-	// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html#Expressions.ConditionExpressions.SimpleComparisons
 	_, err = db.ddb.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(db.tableName),
 		Item:      data,
