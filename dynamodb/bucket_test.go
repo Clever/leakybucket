@@ -57,8 +57,6 @@ func TestAdd(t *testing.T) {
 }
 
 func TestThreadSafeAdd(t *testing.T) {
-	// DynamoDB Add is not thread safe.
-	t.Skip()
 	test.ThreadSafeAddTest(getLocalStorage(t))(t)
 }
 
