@@ -43,26 +43,26 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	defer b.mutex.Unlock()
 	dbBucket, err := b.db.bucket(b.name)
 	if err != nil {
-		return b.state(), err
+		return leakybucket.BucketState{}, err
 	}
 	if dbBucket.expired() {
 		dbBucket, err = b.db.flushBucket(*dbBucket, time.Now().Add(b.rate))
 		if err != nil {
-			return b.state(), err
+			return leakybucket.BucketState{}, err
 		}
 	}
 	// update local state
 	b.remaining = b.capacity - min(dbBucket.Value, b.capacity)
 	b.reset = dbBucket.Expiration
 	if amount > b.remaining {
-		return b.state(), leakybucket.ErrorFull
+		return leakybucket.BucketState{}, leakybucket.ErrorFull
 	}
 	updatedDBBucket, err := b.db.incrementBucketValue(b.name, amount, b.capacity)
 	if err != nil {
 		if err == errBucketCapacityExceeded {
 			return b.state(), leakybucket.ErrorFull
 		}
-		return b.state(), err
+		return leakybucket.BucketState{}, err
 	}
 	// ensure we can't overflow
 	b.remaining = b.capacity - min(uint(updatedDBBucket.Value), b.capacity)
