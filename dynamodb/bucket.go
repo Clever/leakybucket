@@ -1,6 +1,7 @@
 package dynamodb
 
 import (
+	"sync"
 	"time"
 
 	"github.com/Clever/leakybucket"
@@ -17,7 +18,8 @@ type bucket struct {
 	capacity, remaining uint
 	reset               time.Time
 	rate                time.Duration
-	db                  db
+	db                  *bucketDB
+	mutex               sync.Mutex
 }
 
 // Capacity ...
@@ -37,10 +39,8 @@ func (b *bucket) Reset() time.Time {
 
 // Add to the bucket.
 func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
-	// db.GetItem(bucket)
-	// if expired -> flush
-	// if (value + incrementAmount > capacity) -> error
-	// increment by amount -> return error if any
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
 	dbBucket, err := b.db.bucket(b.name)
 	if err != nil {
 		return b.state(), err
@@ -48,14 +48,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	if dbBucket.expired() {
 		dbBucket, err = b.db.flushBucket(*dbBucket, time.Now().Add(b.rate))
 		if err != nil {
-			if err != errConcurrentFlush {
-				return b.state(), err
-			}
-			// if another consumer flushed the bucket re-fetch
-			dbBucket, err = b.db.bucket(b.name)
-			if err != nil {
-				return b.state(), err
-			}
+			return b.state(), err
 		}
 	}
 	// update local state
@@ -86,9 +79,9 @@ func (b *bucket) state() leakybucket.BucketState {
 
 var _ leakybucket.Storage = &Storage{}
 
-// Storage is a dyanamodb-based, non thread-safe leaky bucket factory.
+// Storage is a dyanamodb-based, thread-safe leaky bucket factory.
 type Storage struct {
-	db db
+	db *bucketDB
 }
 
 // Create a bucket. It will determine the current state of the bucket based on:
@@ -103,26 +96,19 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 		rate:      rate,
 		db:        s.db,
 	}
-	dbBucket, err := s.db.bucket(bucket.name)
+	dbBucket, err := s.db.createOrFindBucket(newDDBBucket(name, bucket.reset))
 	if err != nil {
-		// bubble up all errors other than a non-existing bucket
-		if err != errBucketNotFound {
-			return nil, err
-		}
-		if err := s.db.createBucket(newDDBBucket(name, bucket.reset)); err != nil {
-			return nil, err
-		}
-	} else {
-		// guarantee the bucket is in a good state
-		if dbBucket.expired() {
-			// Adding 0 will force all checks and refresh the window
-			if _, err := bucket.Add(0); err != nil {
-				return nil, err
-			}
-		}
-		bucket.remaining = max(capacity-dbBucket.Value, 0)
-		bucket.reset = dbBucket.Expiration
+		return nil, err
 	}
+	// guarantee the bucket is in a good state
+	if dbBucket.expired() {
+		// adding 0 will reset the persisted bucket
+		if _, err := bucket.Add(0); err != nil {
+			return nil, err
+		}
+	}
+	bucket.remaining = max(capacity-dbBucket.Value, 0)
+	bucket.reset = dbBucket.Expiration
 
 	return bucket, nil
 }

@@ -12,20 +12,10 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface"
 )
 
-type db interface {
-	createBucket(bucket ddbBucket) error
-	bucket(name string) (*ddbBucket, error)
-	incrementBucketValue(name string, amount, capacity uint) (*ddbBucket, error)
-	flushBucket(bucket ddbBucket, expiration time.Time) (*ddbBucket, error)
-}
-
 var (
-	errConcurrentFlush        = errors.New("concurrent flush operation")
 	errBucketCapacityExceeded = errors.New("bucket capacity exceeded")
 	errBucketNotFound         = errors.New("bucket not found")
 )
-
-var _ db = &bucketDB{}
 
 type bucketDB struct {
 	ddb       dynamodbiface.DynamoDBAPI
@@ -123,10 +113,10 @@ func (db *bucketDB) bucket(name string) (*ddbBucket, error) {
 	return decodeBucket(res.Item)
 }
 
-func (db *bucketDB) createBucket(bucket ddbBucket) error {
+func (db *bucketDB) createOrFindBucket(bucket ddbBucket) (*ddbBucket, error) {
 	data, err := encodeBucket(bucket)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	_, err = db.ddb.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(db.tableName),
@@ -136,8 +126,15 @@ func (db *bucketDB) createBucket(bucket ddbBucket) error {
 		},
 		ConditionExpression: aws.String("attribute_not_exists(#N)"),
 	})
+	if err != nil {
+		if !awsErr(err, dynamodb.ErrCodeConditionalCheckFailedException) {
+			return nil, err
+		}
+		// for existing buckets simply fetch
+		return db.bucket(bucket.Name)
+	}
 
-	return err
+	return &bucket, err
 }
 
 func (db *bucketDB) incrementBucketValue(name string, amount, capacity uint) (*ddbBucket, error) {
@@ -204,10 +201,12 @@ func (db *bucketDB) flushBucket(bucket ddbBucket, expiration time.Time) (*ddbBuc
 		ConditionExpression: aws.String("version = :v"),
 	})
 	if err != nil {
-		if awsErr(err, dynamodb.ErrCodeConditionalCheckFailedException) {
-			return nil, errConcurrentFlush
+		if !awsErr(err, dynamodb.ErrCodeConditionalCheckFailedException) {
+			return nil, err
 		}
-		return nil, err
+		// A conditional check failing means another consumer of this bucket flushed at the same time.
+		// We can simply swallow the error and re-fetch the bucket
+		return db.bucket(bucket.Name)
 	}
 	return &updatedBucket, nil
 }
