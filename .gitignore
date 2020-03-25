@@ -1,4 +1,8 @@
 *~
 c.out
+# redis
+dump.rdb
 
+# local dev 
 bin
+dynamo-local
