@@ -6,3 +6,6 @@ dump.rdb
 # local dev 
 bin
 dynamo-local
+
+# golang
+vendor

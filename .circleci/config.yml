@@ -18,4 +18,5 @@ jobs:
         command: mkdir -p $CIRCLE_ARTIFACTS $CIRCLE_TEST_REPORTS
         name: Set up CircleCI artifacts directories
     - run: ulimit -n 2560
+    - run: make install_deps
     - run: make test
