@@ -18,7 +18,7 @@ type bucket struct {
 	capacity, remaining uint
 	reset               time.Time
 	rate                time.Duration
-	db                  *bucketDB
+	db                  bucketDB
 	mutex               sync.Mutex
 }
 
@@ -46,7 +46,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return leakybucket.BucketState{}, err
 	}
 	if dbBucket.expired() {
-		dbBucket, err = b.db.flushBucket(*dbBucket, time.Now().Add(b.rate))
+		dbBucket, err = b.db.resetBucket(*dbBucket, time.Now().Add(b.rate))
 		if err != nil {
 			return leakybucket.BucketState{}, err
 		}
@@ -65,7 +65,7 @@ func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 		return leakybucket.BucketState{}, err
 	}
 	// ensure we can't overflow
-	b.remaining = b.capacity - min(uint(updatedDBBucket.Value), b.capacity)
+	b.remaining = b.capacity - min(updatedDBBucket.Value, b.capacity)
 	return b.state(), nil
 }
 
@@ -81,7 +81,7 @@ var _ leakybucket.Storage = &Storage{}
 
 // Storage is a dyanamodb-based, thread-safe leaky bucket factory.
 type Storage struct {
-	db *bucketDB
+	db bucketDB
 }
 
 // Create a bucket. It will determine the current state of the bucket based on:
@@ -117,7 +117,7 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 func New(tableName string, s *session.Session) (*Storage, error) {
 	ddb := dynamodb.New(s)
 
-	db := &bucketDB{
+	db := bucketDB{
 		ddb:       ddb,
 		tableName: tableName,
 	}

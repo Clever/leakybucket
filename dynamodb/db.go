@@ -2,7 +2,7 @@ package dynamodb
 
 import (
 	"errors"
-	"strconv"
+	"fmt"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -88,13 +88,13 @@ func (b *ddbBucket) expired() bool {
 	return time.Now().After(b.Expiration)
 }
 
-func (db *bucketDB) key(name string) (map[string]*dynamodb.AttributeValue, error) {
+func (db bucketDB) key(name string) (map[string]*dynamodb.AttributeValue, error) {
 	return dynamodbattribute.MarshalMap(ddbBucketStatePrimaryKey{
 		Name: string(name),
 	})
 }
 
-func (db *bucketDB) bucket(name string) (*ddbBucket, error) {
+func (db bucketDB) bucket(name string) (*ddbBucket, error) {
 	key, err := db.key(name)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (db *bucketDB) bucket(name string) (*ddbBucket, error) {
 	return decodeBucket(res.Item)
 }
 
-func (db *bucketDB) createOrFindBucket(bucket ddbBucket) (*ddbBucket, error) {
+func (db bucketDB) createOrFindBucket(bucket ddbBucket) (*ddbBucket, error) {
 	data, err := encodeBucket(bucket)
 	if err != nil {
 		return nil, err
@@ -137,21 +137,20 @@ func (db *bucketDB) createOrFindBucket(bucket ddbBucket) (*ddbBucket, error) {
 	return &bucket, err
 }
 
-func (db *bucketDB) incrementBucketValue(name string, amount, capacity uint) (*ddbBucket, error) {
+func (db bucketDB) incrementBucketValue(name string, amount, capacity uint) (*ddbBucket, error) {
 	key, err := db.key(name)
 	if err != nil {
 		return nil, err
 	}
-	// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.UpdateExpressions.html#Expressions.UpdateExpressions.SET.IncrementAndDecrement
 	res, err := db.ddb.UpdateItem(&dynamodb.UpdateItemInput{
 		Key:       key,
 		TableName: aws.String(db.tableName),
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":a": {
-				N: aws.String(strconv.FormatUint(uint64(amount), 10)),
+				N: aws.String(fmt.Sprintf("%d", amount)),
 			},
 			":c": {
-				N: aws.String(strconv.FormatUint(uint64(capacity), 10)),
+				N: aws.String(fmt.Sprintf("%d", capacity)),
 			},
 		},
 		ExpressionAttributeNames: map[string]*string{
@@ -168,11 +167,10 @@ func (db *bucketDB) incrementBucketValue(name string, amount, capacity uint) (*d
 		return nil, err
 	}
 	return decodeBucket(res.Attributes)
-
 }
 
-// flushBucket will reset the bucket's value to 0 iff the versions match
-func (db *bucketDB) flushBucket(bucket ddbBucket, expiration time.Time) (*ddbBucket, error) {
+// resetBucket will reset the bucket's value to 0 iff the versions match
+func (db bucketDB) resetBucket(bucket ddbBucket, expiration time.Time) (*ddbBucket, error) {
 	// dbMaxVersion is an arbitrary constant to prevent the version field from overflowing
 	var dbMaxVersion uint = 2 << 28
 	newVersion := bucket.Version + 1
@@ -195,7 +193,7 @@ func (db *bucketDB) flushBucket(bucket ddbBucket, expiration time.Time) (*ddbBuc
 		Item:      data,
 		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
 			":v": {
-				N: aws.String(strconv.FormatUint(uint64(bucket.Version), 10)),
+				N: aws.String(fmt.Sprintf("%0d", bucket.Version)),
 			},
 		},
 		ConditionExpression: aws.String("version = :v"),
@@ -204,7 +202,7 @@ func (db *bucketDB) flushBucket(bucket ddbBucket, expiration time.Time) (*ddbBuc
 		if !awsErr(err, dynamodb.ErrCodeConditionalCheckFailedException) {
 			return nil, err
 		}
-		// A conditional check failing means another consumer of this bucket flushed at the same time.
+		// A conditional check failing means another consumer of this bucket reset at the same time.
 		// We can simply swallow the error and re-fetch the bucket
 		return db.bucket(bucket.Name)
 	}
