@@ -5,7 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
-func createTable(db *bucketDB) error {
+func createTable(db bucketDB) error {
 	input := &dynamodb.CreateTableInput{
 		TableName:            aws.String(db.tableName),
 		BillingMode:          aws.String(dynamodb.BillingModePayPerRequest),
@@ -20,7 +20,7 @@ func createTable(db *bucketDB) error {
 	})
 }
 
-func deleteTable(db *bucketDB) error {
+func deleteTable(db bucketDB) error {
 	if _, err := db.ddb.DeleteTable(&dynamodb.DeleteTableInput{
 		TableName: aws.String(db.tableName),
 	}); err != nil {
