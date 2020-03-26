@@ -41,12 +41,14 @@ func (b *bucket) Reset() time.Time {
 func (b *bucket) Add(amount uint) (leakybucket.BucketState, error) {
 	b.mutex.Lock()
 	defer b.mutex.Unlock()
-	dbBucket, err := b.db.bucket(b.name)
+	// Storage.Create guarantees the DB Bucket with a configured TTL. For long running executions it
+	// is possible old buckets will get deleted, so we use `findOrCreate` rather than `bucket`
+	dbBucket, err := b.db.findOrCreateBucket(b.name, b.rate)
 	if err != nil {
 		return b.state(), err
 	}
 	if dbBucket.expired() {
-		dbBucket, err = b.db.resetBucket(*dbBucket, time.Now().Add(b.rate))
+		dbBucket, err = b.db.resetBucket(*dbBucket, b.rate)
 		if err != nil {
 			return b.state(), err
 		}
@@ -96,7 +98,7 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 		rate:      rate,
 		db:        s.db,
 	}
-	dbBucket, err := s.db.createOrFindBucket(newDDBBucket(name, bucket.reset))
+	dbBucket, err := s.db.findOrCreateBucket(name, rate)
 	if err != nil {
 		return nil, err
 	}
@@ -114,12 +116,13 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 }
 
 // New initializes the connection to dynamodb
-func New(tableName string, s *session.Session) (*Storage, error) {
+func New(tableName string, s *session.Session, itemTTL time.Duration) (*Storage, error) {
 	ddb := dynamodb.New(s)
 
 	db := bucketDB{
 		ddb:       ddb,
 		tableName: tableName,
+		ttl:       itemTTL,
 	}
 
 	// fail early if the table doesn't exist or we have any other issues with the DynamoDB API
