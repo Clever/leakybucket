@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/Clever/leakybucket"
+
+	"github.com/stretchr/testify/require"
 )
 
 // CreateTest returns a test of bucket creation for a given storage backend.
@@ -35,6 +37,7 @@ func CreateTest(s leakybucket.Storage) func(*testing.T) {
 // It is meant to be used by leakybucket implementers who wish to test this.
 func AddTest(s leakybucket.Storage) func(*testing.T) {
 	return func(t *testing.T) {
+		start := time.Now()
 		bucket, err := s.Create("testbucket", 10, time.Minute)
 		if err != nil {
 			t.Fatal(err)
@@ -55,10 +58,14 @@ func AddTest(s leakybucket.Storage) func(*testing.T) {
 		addAndTestRemaining(3, 6)
 		addAndTestRemaining(6, 0)
 
-		if _, err := bucket.Add(1); err == nil {
+		if b, err := bucket.Add(1); err == nil {
 			t.Fatalf("expected ErrorFull, received no error")
 		} else if err != leakybucket.ErrorFull {
 			t.Fatalf("expected ErrorFull, received %v", err)
+		} else {
+			// we MUST receive a valid BucketState even though an error was encountered
+			require.Equal(t, uint(10), b.Capacity)
+			require.True(t, b.Reset.After(start))
 		}
 	}
 }
@@ -167,7 +174,7 @@ func ThreadSafeAddTest(s leakybucket.Storage) func(*testing.T) {
 		go func() {
 			defer wgRemaining.Done()
 			count := 0
-			for _ = range remaining {
+			for range remaining {
 				count++
 			}
 			if count != n {
