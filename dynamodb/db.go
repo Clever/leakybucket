@@ -66,14 +66,15 @@ type ddbBucket struct {
 }
 
 func newDDBBucket(name string, expiresIn time.Duration, ttl time.Duration) ddbBucket {
+	now := time.Now()
 	return ddbBucket{
 		ddbBucketStatePrimaryKey: ddbBucketStatePrimaryKey{
 			Name: name,
 		},
-		Expiration: time.Now().Add(expiresIn),
+		Expiration: now.Add(expiresIn),
 		Value:      0,
 		Version:    0,
-		TTL:        time.Now().Add(ttl),
+		TTL:        now.Add(ttl),
 	}
 }
 
