@@ -1,3 +1,8 @@
+/*
+Package dynamodb provides a leaky bucket implementation backed by AWS DynamoDB
+
+For additional details please refer to: https://github.com/Clever/leakybucket/tree/master/dynamodb
+*/
 package dynamodb
 
 import (
@@ -115,7 +120,9 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 	return bucket, nil
 }
 
-// New initializes the connection to dynamodb
+// New initializes the a new bucket storage factory backed by dynamodb. We recommend the session is
+// configured with minimal or no retries for a real time use case. Additionally, we recommend
+// itemTTL >>> any rate provided in Storage.Create
 func New(tableName string, s *session.Session, itemTTL time.Duration) (*Storage, error) {
 	ddb := dynamodb.New(s)
 
