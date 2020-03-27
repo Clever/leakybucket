@@ -20,6 +20,7 @@ var (
 type bucketDB struct {
 	ddb       dynamodbiface.DynamoDBAPI
 	tableName string
+	ttl       time.Duration
 }
 
 type ddbBucketStatePrimaryKey struct {
@@ -47,8 +48,6 @@ func (d ddbBucketStatePrimaryKey) KeySchema() []*dynamodb.KeySchemaElement {
 // ddbBucket implements the db interface using dynamodb as the backend
 type ddbBucket struct {
 	ddbBucketStatePrimaryKey
-	// Value is the sum of all increments in the current sliding window for the bucket
-	Value uint `dynamodbav:"value"`
 	// Expiration indicates when the current rate limit expires. We opt not to use DyanamoDB TTLs
 	// because they don't have strong deletion guarantees.
 	// https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/howitworks-ttl.html
@@ -56,18 +55,26 @@ type ddbBucket struct {
 	// which an item truly gets deleted after expiration is specific to the nature of the workload
 	// and the size of the table."
 	Expiration time.Time `dynamodbav:"expiration,unixtime"`
+	// Value is the sum of all increments in the current sliding window for the bucket
+	Value uint `dynamodbav:"value"`
 	// Version is an internal field used to control flushing/draining the Value field concurrently
 	Version uint `dynamodbav:"version"`
+	// TTL is an internal attribute to define how long the item will live in dynamodb prior to being
+	// set for removal. This TTL mechanism is only used for good hygiene to ensure we don't leave
+	// unused buckets in the database forever
+	TTL time.Time `dynamodbav:"_ttl,unixtime"`
 }
 
-func newDDBBucket(name string, expiration time.Time) ddbBucket {
+func newDDBBucket(name string, expiresIn time.Duration, ttl time.Duration) ddbBucket {
+	now := time.Now()
 	return ddbBucket{
 		ddbBucketStatePrimaryKey: ddbBucketStatePrimaryKey{
 			Name: name,
 		},
+		Expiration: now.Add(expiresIn),
 		Value:      0,
-		Expiration: expiration,
 		Version:    0,
+		TTL:        now.Add(ttl),
 	}
 }
 
@@ -113,7 +120,16 @@ func (db bucketDB) bucket(name string) (*ddbBucket, error) {
 	return decodeBucket(res.Item)
 }
 
-func (db bucketDB) createOrFindBucket(bucket ddbBucket) (*ddbBucket, error) {
+func (db bucketDB) findOrCreateBucket(name string, expiresIn time.Duration) (*ddbBucket, error) {
+	dbBucket, err := db.bucket(name)
+	if err == nil {
+		return dbBucket, nil
+	} else if err != errBucketNotFound {
+		return nil, err
+	}
+
+	// otherwise create the bucket
+	bucket := newDDBBucket(name, expiresIn, db.ttl)
 	data, err := encodeBucket(bucket)
 	if err != nil {
 		return nil, err
@@ -130,7 +146,8 @@ func (db bucketDB) createOrFindBucket(bucket ddbBucket) (*ddbBucket, error) {
 		if !awsErr(err, dynamodb.ErrCodeConditionalCheckFailedException) {
 			return nil, err
 		}
-		// for existing buckets simply fetch
+		// insane edge case because we know we can have multiple consumers
+		// for existing buckets simply re-fetch
 		return db.bucket(bucket.Name)
 	}
 
@@ -170,20 +187,15 @@ func (db bucketDB) incrementBucketValue(name string, amount, capacity uint) (*dd
 }
 
 // resetBucket will reset the bucket's value to 0 iff the versions match
-func (db bucketDB) resetBucket(bucket ddbBucket, expiration time.Time) (*ddbBucket, error) {
+func (db bucketDB) resetBucket(bucket ddbBucket, expiresIn time.Duration) (*ddbBucket, error) {
 	// dbMaxVersion is an arbitrary constant to prevent the version field from overflowing
 	var dbMaxVersion uint = 2 << 28
 	newVersion := bucket.Version + 1
 	if newVersion > dbMaxVersion {
 		newVersion = 0
 	}
-
-	updatedBucket := ddbBucket{
-		ddbBucketStatePrimaryKey: bucket.ddbBucketStatePrimaryKey,
-		Value:                    0,
-		Expiration:               expiration,
-		Version:                  newVersion,
-	}
+	updatedBucket := newDDBBucket(bucket.ddbBucketStatePrimaryKey.Name, expiresIn, db.ttl)
+	updatedBucket.Version = newVersion
 	data, err := encodeBucket(updatedBucket)
 	if err != nil {
 		return nil, err
