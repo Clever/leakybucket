@@ -20,4 +20,4 @@ jobs:
     - run: ulimit -n 2560
     - run: make install_deps
     - run: make test
-    - run: if [ "${CIRCLE_BRANCH}" == "master" ]; then make release && $HOME/ci-scripts/circleci/github-release $GH_RELEASE_TOKEN release; fi;
+    - run: if [ "${CIRCLE_BRANCH}" == "master" ]; then ../ci-scripts/circleci/github-release $GH_RELEASE_TOKEN; fi;
