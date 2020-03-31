@@ -21,7 +21,7 @@ type Bucket interface {
 	// Reset returns when the bucket will be drained.
 	Reset() time.Time
 
-	// Add to the bucket. Returns bucket state after adding.
+	// Add to the bucket. MUST return bucket state after adding, even if an error was encountered
 	Add(uint) (BucketState, error)
 }
 
