@@ -6,6 +6,7 @@ For additional details please refer to: https://github.com/Clever/leakybucket/tr
 package dynamodb
 
 import (
+	"strings"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/eapache/go-resiliency/retrier"
 )
 
 var _ leakybucket.Bucket = &bucket{}
@@ -132,10 +134,16 @@ func New(tableName string, s *session.Session, itemTTL time.Duration) (*Storage,
 		ttl:       itemTTL,
 	}
 
-	// fail early if the table doesn't exist or we have any other issues with the DynamoDB API
-	if _, err := ddb.DescribeTable(&dynamodb.DescribeTableInput{
-		TableName: aws.String(tableName),
-	}); err != nil {
+	// Fail early if the table doesn't exist or we have any other issues with the DynamoDB API
+	// but guarantee we retry dial timeouts to be tolerant to a networking blip
+	r := retrier.New(retrier.ExponentialBackoff(5, 1*time.Second), dialTimeoutRetrier{})
+	err := r.Run(func() error {
+		_, err := ddb.DescribeTable(&dynamodb.DescribeTableInput{
+			TableName: aws.String(tableName),
+		})
+		return err
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -156,4 +164,21 @@ func min(a, b uint) uint {
 		return a
 	}
 	return b
+}
+
+// dialTimeoutRetrier classifies errors from DynamoDB API in the form of
+//   Post https://dynamodb.{region}.amazonaws.com: dial tcp x.x.x.x: i/o timeout
+// as retryable errors. This classifier is only used in `New` as we don't want to override the
+// consumer's configuration during normal operation
+type dialTimeoutRetrier struct{}
+
+var _ retrier.Classifier = dialTimeoutRetrier{}
+
+func (dialTimeoutRetrier) Classify(err error) retrier.Action {
+	if err == nil {
+		return retrier.Succeed
+	} else if strings.Contains(err.Error(), "dial tcp") && strings.Contains(err.Error(), "i/o timeout") {
+		return retrier.Retry
+	}
+	return retrier.Fail
 }
