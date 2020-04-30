@@ -59,6 +59,14 @@
   version = "v1.1.1"
 
 [[projects]]
+  digest = "1:8c9af6e3162383951dee97404fadb761f9ae60b4806998df288a5b143afa7251"
+  name = "github.com/eapache/go-resiliency"
+  packages = ["retrier"]
+  pruneopts = ""
+  revision = "5efd2ed019fd331ec2defc6f3bd98882f1e3e636"
+  version = "v1.2.0"
+
+[[projects]]
   digest = "1:dc100ac3d17843d02b68597df496d68fee5c1180c340c3029d374eff46214683"
   name = "github.com/garyburd/redigo"
   packages = [
@@ -114,6 +122,7 @@
     "github.com/aws/aws-sdk-go/service/dynamodb",
     "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute",
     "github.com/aws/aws-sdk-go/service/dynamodb/dynamodbiface",
+    "github.com/eapache/go-resiliency/retrier",
     "github.com/garyburd/redigo/redis",
     "github.com/stretchr/testify/require",
   ]

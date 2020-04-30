@@ -1,2 +1,3 @@
-v1.0.0
+v1.1.0
+- v1.1.0: add retries during dynamodb bucket initialization
 - v1.0.0: added dynamodb backed implementation
