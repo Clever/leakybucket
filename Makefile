@@ -4,7 +4,7 @@ include golang.mk
 .PHONY: test $(PKGS) dynamodb-test
 SHELL := /bin/bash
 PKG := github.com/Clever/leakybucket
-PKGS := $(shell go list ./... | grep -v /dynamodb)
+PKGS := $(shell go list ./... | grep -v /dynamodb | grep -v /vendor)
 $(eval $(call golang-version-check,1.13))
 
 export REDIS_URL ?= localhost:6379
@@ -17,5 +17,5 @@ $(PKGS): golang-test-all-deps
 	$(call golang-test-all,$@)
 
 
-install_deps: golang-dep-vendor-deps
-	$(call golang-dep-vendor)
+install_deps:
+	go mod vendor
