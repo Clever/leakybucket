@@ -1,7 +1,7 @@
 version: 2
 jobs:
   build:
-    working_directory: /go/src/github.com/Clever/leakybucket
+    working_directory: ~/go/src/github.com/Clever/leakybucket
     docker:
     - image: cimg/go:1.21
     - image: redis@sha256:858b1677143e9f8455821881115e276f6177221de1c663d0abef9b2fda02d065
