@@ -167,7 +167,9 @@ func min(a, b uint) uint {
 }
 
 // dialTimeoutRetrier classifies errors from DynamoDB API in the form of
-//   Post https://dynamodb.{region}.amazonaws.com: dial tcp x.x.x.x: i/o timeout
+//
+//	Post https://dynamodb.{region}.amazonaws.com: dial tcp x.x.x.x: i/o timeout
+//
 // as retryable errors. This classifier is only used in `New` as we don't want to override the
 // consumer's configuration during normal operation
 type dialTimeoutRetrier struct{}
