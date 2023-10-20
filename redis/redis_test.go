@@ -78,20 +78,28 @@ func TestFastAccess(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	n := 50
 	hold := make(chan struct{})
+	errs := make(chan error, n)
 	wg := sync.WaitGroup{}
-	for i := 0; i < 50; i++ {
+	for i := 0; i < n; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			<-hold
 			if _, err := bucket.Add(1); err != nil && err != leakybucket.ErrorFull {
-				t.Fatal(err)
+				errs <- err
 			}
 		}()
 	}
 	close(hold) // Let all concurrent requests start
 	wg.Wait()   // Wait for all concurrent requests to finish
+	for i := 0; i < n; i++ {
+		err := <-errs
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	conn := s.pool.Get()
 	defer conn.Close()
