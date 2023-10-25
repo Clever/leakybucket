@@ -94,6 +94,7 @@ func TestFastAccess(t *testing.T) {
 	}
 	close(hold) // Let all concurrent requests start
 	wg.Wait()   // Wait for all concurrent requests to finish
+	close(errs)
 	for i := 0; i < n; i++ {
 		err := <-errs
 		if err != nil {
