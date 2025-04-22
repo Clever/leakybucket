@@ -5,7 +5,7 @@ include golang.mk
 SHELL := /bin/bash
 PKG := github.com/Clever/leakybucket
 PKGS := $(shell go list ./... | grep -v /dynamodb | grep -v /vendor)
-$(eval $(call golang-version-check,1.13))
+$(eval $(call golang-version-check,1.24))
 
 export REDIS_URL ?= localhost:6379
 
