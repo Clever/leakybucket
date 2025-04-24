@@ -1,6 +1,6 @@
 module github.com/Clever/leakybucket
 
-go 1.21
+go 1.24
 
 require (
 	github.com/aws/aws-sdk-go v1.29.31
