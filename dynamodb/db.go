@@ -111,7 +111,8 @@ func (db bucketDB) bucket(name string) (*ddbBucket, error) {
 		TableName:      aws.String(db.tableName),
 		ConsistentRead: aws.Bool(true),
 	})
-	if isResourceNotFoundError(err) || len(res.Item) == 0 {
+	var rnfe *types.ResourceNotFoundException
+	if errors.As(err, &rnfe) || len(res.Item) == 0 {
 		return nil, errBucketNotFound
 	} else if err != nil {
 		return nil, err
@@ -144,7 +145,8 @@ func (db bucketDB) findOrCreateBucket(name string, expiresIn time.Duration) (*dd
 		ConditionExpression: aws.String("attribute_not_exists(#N)"),
 	})
 	if err != nil {
-		if !isConditionalCheckFailedError(err) {
+		var ccfe *types.ConditionalCheckFailedException
+		if !errors.As(err, &ccfe) {
 			return nil, err
 		}
 		// insane edge case because we know we can have multiple consumers
@@ -180,7 +182,8 @@ func (db bucketDB) incrementBucketValue(name string, amount, capacity uint) (*dd
 		ConditionExpression: aws.String("#V <= :c"),
 	})
 	if err != nil {
-		if isConditionalCheckFailedError(err) {
+		var ccfe *types.ConditionalCheckFailedException
+		if errors.As(err, &ccfe) {
 			return nil, errBucketCapacityExceeded
 		}
 		return nil, err
@@ -214,7 +217,8 @@ func (db bucketDB) resetBucket(bucket ddbBucket, expiresIn time.Duration) (*ddbB
 		ConditionExpression: aws.String("version = :v"),
 	})
 	if err != nil {
-		if !isConditionalCheckFailedError(err) {
+		var ccfe *types.ConditionalCheckFailedException
+		if !errors.As(err, &ccfe) {
 			return nil, err
 		}
 		// A conditional check failing means another consumer of this bucket reset at the same time.
@@ -222,20 +226,4 @@ func (db bucketDB) resetBucket(bucket ddbBucket, expiresIn time.Duration) (*ddbB
 		return db.bucket(bucket.Name)
 	}
 	return &updatedBucket, nil
-}
-
-func isResourceNotFoundError(err error) bool {
-	if err == nil {
-		return false
-	}
-	var rnfe *types.ResourceNotFoundException
-	return errors.As(err, &rnfe)
-}
-
-func isConditionalCheckFailedError(err error) bool {
-	if err == nil {
-		return false
-	}
-	var ccfe *types.ConditionalCheckFailedException
-	return errors.As(err, &ccfe)
 }
