@@ -16,19 +16,21 @@ func createTable(db bucketDB) error {
 		AttributeDefinitions: ddbBucketStatePrimaryKey{}.AttributeDefinitions(),
 		KeySchema:            ddbBucketStatePrimaryKey{}.KeySchema(),
 	}
-	if _, err := db.ddb.CreateTable(context.TODO(), input); err != nil {
+	ctx := context.Background()
+	if _, err := db.ddb.CreateTable(ctx, input); err != nil {
 		return err
 	}
 
 	// Wait for table to exist
 	waiter := dynamodb.NewTableExistsWaiter(db.ddb)
-	return waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{
+	return waiter.Wait(ctx, &dynamodb.DescribeTableInput{
 		TableName: aws.String(db.tableName),
 	}, 30*time.Second)
 }
 
 func deleteTable(db bucketDB) error {
-	if _, err := db.ddb.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
+	ctx := context.Background()
+	if _, err := db.ddb.DeleteTable(ctx, &dynamodb.DeleteTableInput{
 		TableName: aws.String(db.tableName),
 	}); err != nil {
 		return err
@@ -36,7 +38,7 @@ func deleteTable(db bucketDB) error {
 
 	// Wait for table to not exist
 	waiter := dynamodb.NewTableNotExistsWaiter(db.ddb)
-	return waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{
+	return waiter.Wait(ctx, &dynamodb.DescribeTableInput{
 		TableName: aws.String(db.tableName),
 	}, 30*time.Second)
 }
