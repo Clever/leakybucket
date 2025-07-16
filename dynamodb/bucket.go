@@ -6,15 +6,15 @@ For additional details please refer to: https://github.com/Clever/leakybucket/tr
 package dynamodb
 
 import (
+	"context"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/Clever/leakybucket"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/eapache/go-resiliency/retrier"
 )
 
@@ -122,11 +122,11 @@ func (s *Storage) Create(name string, capacity uint, rate time.Duration) (leakyb
 	return bucket, nil
 }
 
-// New initializes the a new bucket storage factory backed by dynamodb. We recommend the session is
+// New initializes the a new bucket storage factory backed by dynamodb. We recommend the config is
 // configured with minimal or no retries for a real time use case. Additionally, we recommend
 // itemTTL >>> any rate provided in Storage.Create
-func New(tableName string, s *session.Session, itemTTL time.Duration) (*Storage, error) {
-	ddb := dynamodb.New(s)
+func New(tableName string, cfg aws.Config, itemTTL time.Duration) (*Storage, error) {
+	ddb := dynamodb.NewFromConfig(cfg)
 
 	db := bucketDB{
 		ddb:       ddb,
@@ -137,8 +137,9 @@ func New(tableName string, s *session.Session, itemTTL time.Duration) (*Storage,
 	// Fail early if the table doesn't exist or we have any other issues with the DynamoDB API
 	// but guarantee we retry dial timeouts to be tolerant to a networking blip
 	r := retrier.New(retrier.ExponentialBackoff(5, 1*time.Second), dialTimeoutRetrier{})
+	ctx := context.Background()
 	err := r.Run(func() error {
-		_, err := ddb.DescribeTable(&dynamodb.DescribeTableInput{
+		_, err := ddb.DescribeTable(ctx, &dynamodb.DescribeTableInput{
 			TableName: aws.String(tableName),
 		})
 		return err

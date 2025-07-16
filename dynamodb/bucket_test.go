@@ -1,16 +1,18 @@
 package dynamodb
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/Clever/leakybucket/test"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 
 	"github.com/stretchr/testify/require"
 )
@@ -27,12 +29,27 @@ func testRequiredEnv(t *testing.T, key string) string {
 
 func testStorage(t *testing.T) *Storage {
 	table := "test-table"
-	s, err := session.NewSession(&aws.Config{
-		Region:      aws.String("doesntmatter"),
-		Endpoint:    aws.String(testRequiredEnv(t, "AWS_DYNAMO_ENDPOINT")),
-		Credentials: credentials.NewStaticCredentials("id", "secret", "token"),
+
+	// Create custom config for testing
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		return aws.Endpoint{
+			URL: testRequiredEnv(t, "AWS_DYNAMO_ENDPOINT"),
+		}, nil
 	})
-	ddb := dynamodb.New(s)
+
+	ctx := context.Background()
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithEndpointResolverWithOptions(customResolver),
+		config.WithCredentialsProvider(credentials.StaticCredentialsProvider{
+			Value: aws.Credentials{
+				AccessKeyID: "id", SecretAccessKey: "secret", SessionToken: "token",
+			},
+		}),
+	)
+	require.NoError(t, err)
+
+	ddb := dynamodb.NewFromConfig(cfg)
 	db := bucketDB{
 		ddb:       ddb,
 		tableName: table,
@@ -41,7 +58,7 @@ func testStorage(t *testing.T) *Storage {
 	deleteTable(db)
 	err = createTable(db)
 	require.NoError(t, err)
-	storage, err := New(table, s, 10*time.Second)
+	storage, err := New(table, cfg, 10*time.Second)
 	require.NoError(t, err)
 
 	return storage
@@ -73,11 +90,19 @@ func TestBucketInstanceConsistencyTest(t *testing.T) {
 
 // package specific tests
 func TestNoTable(t *testing.T) {
-	session, err := session.NewSession(&aws.Config{
-		Endpoint: aws.String(os.Getenv("AWS_DYNAMO_ENDPOINT")),
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		return aws.Endpoint{
+			URL: os.Getenv("AWS_DYNAMO_ENDPOINT"),
+		}, nil
 	})
+
+	ctx := context.Background()
+
+	cfg, err := config.LoadDefaultConfig(ctx,
+		config.WithEndpointResolverWithOptions(customResolver),
+	)
 	require.NoError(t, err)
-	_, err = New("doesntmatter", session, 10*time.Second)
+	_, err = New("doesntmatter", cfg, 10*time.Second)
 	require.Error(t, err)
 }
 
@@ -89,9 +114,10 @@ func TestBucketTTL(t *testing.T) {
 	s := testStorage(t)
 	s.db.ttl = time.Second
 
-	_, err := s.db.ddb.UpdateTimeToLive(&dynamodb.UpdateTimeToLiveInput{
+	ctx := context.Background()
+	_, err := s.db.ddb.UpdateTimeToLive(ctx, &dynamodb.UpdateTimeToLiveInput{
 		TableName: aws.String(s.db.tableName),
-		TimeToLiveSpecification: &dynamodb.TimeToLiveSpecification{
+		TimeToLiveSpecification: &types.TimeToLiveSpecification{
 			AttributeName: aws.String("_ttl"),
 			Enabled:       aws.Bool(true),
 		},
